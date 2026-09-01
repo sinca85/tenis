@@ -25,7 +25,7 @@ function duration(turno: TurnoAgenda) {
   return endHour * 60 + endMinute - startHour * 60 - startMinute;
 }
 
-export default function TurnosDashboard({ username }: { username: string }) {
+export default function TurnosDashboard({ name }: { name: string }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<{ email: string }>();
   const [fecha, setFecha] = useState(localDate());
@@ -203,11 +203,10 @@ export default function TurnosDashboard({ username }: { username: string }) {
     <main className="dashboard">
       <header className="topbar">
         <Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link>
-        <nav><span className="user-name">Hola, {username}</span><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
+        <nav><Button href="/reservas" type="text" icon={<CalendarOutlined />}>Mis reservas</Button><span className="user-name">Hola, {name}</span><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
       </header>
       <section className="hero">
-        <div><p className="eyebrow">NEPTUNIA · DISPONIBILIDAD EN VIVO</p><h1>Reservá tu cancha<br />de forma simple.</h1><p className="hero-copy">Elegí el día, encontrá tu horario y seguí jugando.</p></div>
-        <div className="hero-ball-wrap" aria-hidden="true"><div className="tennis-ball hero-ball" /></div>
+        <div><p className="eyebrow">NEPTUNIA · DISPONIBILIDAD EN VIVO</p><p className="hero-copy">Elegí el día, encontrá tu horario y seguí jugando.</p></div>
       </section>
       <section className="date-strip">
         <div className="date-picker-group"><span><CalendarOutlined /> Elegí una fecha</span><DatePicker value={dayjs(fecha)} minDate={dayjs(localDate())} onChange={changeDate} format="dddd D [de] MMMM" allowClear={false} /></div>

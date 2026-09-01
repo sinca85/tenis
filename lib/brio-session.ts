@@ -7,6 +7,7 @@ export type BrioAuth = {
   cookie: string;
   socioId: string;
   username: string;
+  name: string;
 };
 
 function key() {
@@ -37,7 +38,7 @@ export function verifyBrioSession(token?: string): BrioAuth | null {
     const auth = JSON.parse(decoded) as Partial<BrioAuth> & { expires?: number };
     return typeof auth.cookie === "string" && typeof auth.socioId === "string" && typeof auth.username === "string" &&
       typeof auth.expires === "number" && auth.expires > Date.now() / 1000
-      ? { cookie: auth.cookie, socioId: auth.socioId, username: auth.username }
+      ? { cookie: auth.cookie, socioId: auth.socioId, username: auth.username, name: typeof auth.name === "string" ? auth.name : auth.username }
       : null;
   } catch {
     return null;

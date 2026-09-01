@@ -1,4 +1,4 @@
-import type { Colega, ConsultaReserva, PreReserva, ReservaConfirmada, Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
+import type { Colega, ConsultaCancelacion, ConsultaReserva, PreReserva, ReservaConfirmada, ReservaUsuario, Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
 import type { BrioAuth } from "@/lib/brio-session";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -97,7 +97,14 @@ export async function authenticateBrio(username: string, password: string): Prom
   const landingHtml = await landing.text();
   const socioId = landingHtml.match(/\/carnet\/([0-9a-f-]{36})\//i)?.[1];
   if (!socioId || !validId(socioId)) throw new Error("Brio no informó el socio asociado a esta cuenta");
-  return { cookie: mergeCookies(cookie.split("; "), cookiePairs(landing)), socioId, username: username.trim() };
+  const authenticatedCookie = mergeCookies(cookie.split("; "), cookiePairs(landing));
+  const profile = await fetch(new URL(`/turno/admin/socio/${socioId}/`, baseUrl), {
+    headers: { Accept: "application/json", Cookie: authenticatedCookie, "User-Agent": "tenis.santivillabrile.com" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  });
+  const profileData = profile.ok ? await profile.json() as { nombre?: string } : {};
+  return { cookie: authenticatedCookie, socioId, username: username.trim(), name: profileData.nombre?.trim() || username.trim() };
 }
 
 async function getLegacySession() {
@@ -129,6 +136,18 @@ async function brioJson<T>(auth: BrioAuth, path: string): Promise<T> {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) throw new Error("Brio no devolvió una respuesta válida");
   return response.json() as Promise<T>;
+}
+
+async function brioText(auth: BrioAuth, path: string) {
+  const response = await fetch(new URL(path, BRIO_BASE_URL), {
+    headers: { Accept: "text/html", Cookie: auth.cookie, "User-Agent": "tenis.santivillabrile.com" },
+    cache: "no-store",
+    redirect: "manual",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (response.status >= 300 && response.status < 400) throw new Error("Tu sesión de Neptunia venció; volvé a iniciar sesión");
+  if (!response.ok) throw new Error(`Brio respondió ${response.status}`);
+  return response.text();
 }
 
 function validId(value: string) {
@@ -178,6 +197,54 @@ export async function confirmarReserva(auth: BrioAuth, turnoId: string, colegaId
 export async function cancelarPreReserva(auth: BrioAuth, turnoId: string) {
   if (!validId(turnoId)) throw new Error("Turno inválido");
   return brioJson<{ status: boolean }>(auth, `/turno/desestimar/${turnoId}/`);
+}
+
+function plainText(value: unknown) {
+  return String(value || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export async function getReservas(auth: BrioAuth): Promise<ReservaUsuario[]> {
+  const html = await brioText(auth, "/turno/reservas/");
+  const ids = [...new Set([...html.matchAll(/verReserva\(['"]([0-9a-f-]{36})['"]\)/ig)].map((match) => match[1]))];
+  return Promise.all(ids.map(async (id) => {
+    const response = await brioJson<{
+      status: boolean;
+      data?: { id?: string; nombre?: string; turnoSocioEstado?: string; mensaje?: string; puedoCancelar?: boolean; locked?: boolean };
+      socios?: Array<{ apellidonombre?: string }>;
+    }>(auth, `/turno/socio/${id}/`);
+    if (!response.status || !response.data) throw new Error("Una reserva ya no está disponible");
+    return {
+      id,
+      turnoId: response.data.id || "",
+      nombre: response.data.nombre || "Turno de tenis",
+      estado: response.data.turnoSocioEstado || "Reservado",
+      mensaje: plainText(response.data.mensaje),
+      puedeCancelar: Boolean(response.data.puedoCancelar),
+      locked: Boolean(response.data.locked),
+      socios: (response.socios || []).map((socio) => socio.apellidonombre || "Socio").filter(Boolean),
+    };
+  }));
+}
+
+export async function consultarCancelacion(auth: BrioAuth, reservaId: string): Promise<ConsultaCancelacion> {
+  if (!validId(reservaId)) throw new Error("Reserva inválida");
+  const response = await brioJson<{ status: boolean; data?: { mensaje?: string; mensaje1?: string } | string }>(
+    auth,
+    `/turno/socio/cancelar/${reservaId}/true/`,
+  );
+  if (!response.status || typeof response.data === "string") throw new Error(plainText(response.data) || "La reserva no puede cancelarse");
+  return { mensaje: plainText(response.data?.mensaje) || "Cancelar turno", detalle: plainText(response.data?.mensaje1) };
+}
+
+export async function cancelarReserva(auth: BrioAuth, reservaId: string) {
+  if (!validId(reservaId)) throw new Error("Reserva inválida");
+  const response = await brioJson<{ status: boolean | string; data?: { mensaje?: string; mensaje1?: string } }>(
+    auth,
+    `/turno/cancelar/${reservaId}/true/`,
+  );
+  const successful = response.status === true || response.status === "success";
+  if (!successful) throw new Error(plainText(response.data?.mensaje) || "Brio no pudo cancelar el turno");
+  return { mensaje: plainText(response.data?.mensaje) || "Turno cancelado", detalle: plainText(response.data?.mensaje1) };
 }
 
 export async function getTurnos(fecha: string, userAuth?: BrioAuth): Promise<Turno[]> {

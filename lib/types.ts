@@ -66,3 +66,19 @@ export type ReservaConfirmada = {
   titulo: string;
   mensaje: string;
 };
+
+export type ReservaUsuario = {
+  id: string;
+  turnoId: string;
+  nombre: string;
+  estado: string;
+  mensaje: string;
+  puedeCancelar: boolean;
+  locked: boolean;
+  socios: string[];
+};
+
+export type ConsultaCancelacion = {
+  mensaje: string;
+  detalle: string;
+};
