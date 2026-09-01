@@ -12,7 +12,7 @@ Sin `.env.local`, el acceso local de desarrollo es `admin` / `tenis`. Para produ
 
 ## Despliegue
 
-El proyecto está preparado para Node/Next.js y salida standalone. Configurar las variables de `.env.example` en el proveedor y apuntar `tenis.santivillabrile.com` al despliegue.
+El proyecto está preparado para desplegarse directamente en Vercel. Configurar las variables de `.env.example` en el proyecto y apuntar `tenis.santivillabrile.com` al deployment de producción.
 
 ## Alcance actual
 
