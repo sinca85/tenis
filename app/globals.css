@@ -69,6 +69,8 @@ a { color: inherit; }
 .slots-table .ant-table { background: transparent; }
 .slots-table .ant-table-thead > tr > th { padding-block: 18px; color: #9b8b7f; font-size: 10px; letter-spacing: .12em; }
 .slots-table .ant-table-tbody > tr > td { padding-block: 17px; border-bottom-color: #f0e8df; }
+.slots-table .ant-table-tbody > tr.court-three-available > td,
+.slots-table .ant-table-tbody > tr.court-three-available:hover > td { background: #e0fee5; }
 .slots-table .ant-tag { margin: 0; padding-inline: 12px; border: 0; border-radius: 999px; }
 .mobile-only { display: none; }
 .time-cell { font-size: 16px; font-weight: 800; }
