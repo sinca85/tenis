@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import LoginForm from "./login-form";
 
 export default async function LoginPage({
   searchParams,
@@ -13,19 +15,14 @@ export default async function LoginPage({
   return (
     <main className="login-shell">
       <section className="login-card">
-        <div className="brand-mark" aria-hidden="true">⇗</div>
-        <p className="eyebrow">SANTIVILLABRILE</p>
-        <h1>Encontrá cancha.<br />Jugá más.</h1>
-        <p className="muted">Consultá todos los turnos de tenis disponibles en Neptunia desde un solo lugar.</p>
-        <form action="/api/login" method="post" className="login-form">
-          <label>Usuario<input name="username" type="text" required autoComplete="username" placeholder="Tu usuario" /></label>
-          <label>Contraseña<input name="password" type="password" required autoComplete="current-password" placeholder="••••••••" /></label>
-          {error && <p className="form-error">Usuario o contraseña incorrectos.</p>}
-          <button type="submit" className="primary-button">Ingresar <span>→</span></button>
-        </form>
+        <Link className="brand" href="/" aria-label="Tenis, inicio"><span className="tennis-ball mini" /> TENIS</Link>
+        <p className="eyebrow">ACCESO PRIVADO</p>
+        <h1>Tu próximo partido<br />empieza acá.</h1>
+        <p className="muted">Consultá todos los turnos disponibles de Neptunia desde un solo lugar.</p>
+        <LoginForm hasError={Boolean(error)} />
         <p className="tiny">Acceso privado · tenis.santivillabrile.com</p>
       </section>
-      <aside className="court-art"><div className="ball" /><div className="court-lines" /></aside>
+      <aside className="login-visual" aria-hidden="true"><div className="tennis-ball giant" /><div className="visual-copy">RESERVÁ.<br />JUGÁ.<br />REPETÍ.</div></aside>
     </main>
   );
 }
