@@ -1,13 +1,13 @@
 "use client";
 
 import { BellOutlined, CalendarOutlined, ClockCircleOutlined, LogoutOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Alert, App, Button, DatePicker, Empty, Form, Input, Modal, Skeleton, Switch, Table, Tag } from "antd";
+import { Alert, App, Button, DatePicker, Empty, Form, Input, Modal, Select, Skeleton, Switch, Table, Tag } from "antd";
 import type { TableColumnsType } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { TurnoAgenda } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Colega, ConsultaReserva, PreReserva, TurnoAgenda } from "@/lib/types";
 
 function localDate(offset = 0) {
   const date = new Date();
@@ -36,6 +36,15 @@ export default function TurnosDashboard({ username }: { username: string }) {
   const [selected, setSelected] = useState<TurnoAgenda | null>(null);
   const [savingAlert, setSavingAlert] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [reserveTurno, setReserveTurno] = useState<TurnoAgenda | null>(null);
+  const [reserveInfo, setReserveInfo] = useState<ConsultaReserva | null>(null);
+  const [preReserve, setPreReserve] = useState<PreReserva | null>(null);
+  const [reserveLoading, setReserveLoading] = useState(false);
+  const [colegas, setColegas] = useState<Colega[]>([]);
+  const [colegaId, setColegaId] = useState<string>();
+  const [searchingColegas, setSearchingColegas] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const searchSequence = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -64,16 +73,102 @@ export default function TurnosDashboard({ username }: { username: string }) {
     form.resetFields();
     setSelected(turno);
   }, [form]);
+  const reserveRequest = useCallback(async (action: string, turnoId: string, selectedColegaId?: string) => {
+    const response = await fetch("/api/reservas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, turnoId, colegaId: selectedColegaId }),
+    });
+    const json = await response.json();
+    if (!response.ok || !json.status) throw new Error(json.error || "No se pudo procesar la reserva");
+    return json.data;
+  }, []);
+  const openReserve = useCallback(async (turno: TurnoAgenda) => {
+    setReserveTurno(turno);
+    setReserveInfo(null);
+    setPreReserve(null);
+    setColegas([]);
+    setColegaId(undefined);
+    setReserveLoading(true);
+    try {
+      setReserveInfo(await reserveRequest("consultar", turno.id));
+    } catch (cause) {
+      setReserveTurno(null);
+      message.error(cause instanceof Error ? cause.message : "No se pudo consultar el turno");
+    } finally {
+      setReserveLoading(false);
+    }
+  }, [message, reserveRequest]);
   const columns = useMemo<TableColumnsType<TurnoAgenda>>(
     () => [
       { title: "HORARIO", key: "hora", render: (_, turno) => <span className="time-cell">{turno.hora.slice(0, 5)} <small>a {turno.horafin.slice(0, 5)}</small></span> },
       { title: "CANCHA", dataIndex: "servicioNombre", key: "cancha" },
       { title: "DURACIÓN", key: "duracion", responsive: ["md"], render: (_, turno) => `${duration(turno)} min` },
       { title: "ESTADO", key: "estado", render: (_, turno) => turno.disponible ? <Tag color="success">Disponible</Tag> : <Tag>Ocupado</Tag> },
-      { title: "", key: "action", align: "right", render: (_, turno) => turno.disponible ? <Button type="primary" shape="round" href="https://neptunia.brio.club/" target="_blank">Reservar</Button> : <Button shape="round" icon={<BellOutlined />} onClick={() => openAlert(turno)}>Notificar baja</Button> },
+      { title: "", key: "action", align: "right", render: (_, turno) => turno.disponible ? <Button type="primary" shape="round" onClick={() => void openReserve(turno)}>Reservar</Button> : <Button shape="round" icon={<BellOutlined />} onClick={() => openAlert(turno)}>Notificar baja</Button> },
     ],
-    [openAlert],
+    [openAlert, openReserve],
   );
+
+  useEffect(() => {
+    if (!preReserve) return;
+    const timer = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [preReserve]);
+
+  const startPreReserve = async () => {
+    if (!reserveTurno) return;
+    setReserveLoading(true);
+    try {
+      const data = await reserveRequest("prereservar", reserveTurno.id) as PreReserva;
+      setSecondsLeft(data.timer);
+      setPreReserve(data);
+    } catch (cause) {
+      message.error(cause instanceof Error ? cause.message : "No se pudo iniciar la pre-reserva");
+    } finally {
+      setReserveLoading(false);
+    }
+  };
+
+  const searchColegas = async (search: string) => {
+    if (!reserveTurno || search.trim().length < 3) { setColegas([]); return; }
+    const sequence = ++searchSequence.current;
+    setSearchingColegas(true);
+    try {
+      const response = await fetch(`/api/reservas?turnoId=${encodeURIComponent(reserveTurno.id)}&search=${encodeURIComponent(search.trim())}`, { cache: "no-store" });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "No se pudieron buscar socios");
+      if (sequence === searchSequence.current) setColegas(json.data);
+    } catch (cause) {
+      if (sequence === searchSequence.current) message.error(cause instanceof Error ? cause.message : "No se pudieron buscar socios");
+    } finally {
+      if (sequence === searchSequence.current) setSearchingColegas(false);
+    }
+  };
+
+  const closeReserve = async () => {
+    const turno = reserveTurno;
+    const shouldCancel = Boolean(preReserve);
+    setReserveTurno(null); setReserveInfo(null); setPreReserve(null); setColegaId(undefined);
+    if (turno && shouldCancel) {
+      try { await reserveRequest("cancelar", turno.id); } catch { /* La pre-reserva vence automáticamente. */ }
+    }
+  };
+
+  const finishReserve = async () => {
+    if (!reserveTurno || !colegaId) return;
+    setReserveLoading(true);
+    try {
+      const result = await reserveRequest("confirmar", reserveTurno.id, colegaId);
+      setReserveTurno(null); setReserveInfo(null); setPreReserve(null); setColegaId(undefined);
+      Modal.success({ title: result.titulo || "Turno reservado", content: result.mensaje });
+      await load();
+    } catch (cause) {
+      message.error(cause instanceof Error ? cause.message : "No se pudo confirmar la reserva");
+    } finally {
+      setReserveLoading(false);
+    }
+  };
 
   const changeDate = (value: Dayjs | null) => {
     if (value) setFecha(value.format("YYYY-MM-DD"));
@@ -134,6 +229,26 @@ export default function TurnosDashboard({ username }: { username: string }) {
           <Button type="primary" htmlType="submit" loading={savingAlert} block>Crear alerta</Button>
         </Form>
         <p className="alert-note">Lo verificamos periódicamente y enviamos un único email cuando Brio vuelve a mostrarlo disponible.</p>
+      </Modal>
+      <Modal
+        title={preReserve ? "Elegí a tu compañero" : "Confirmar turno"}
+        open={Boolean(reserveTurno)}
+        onCancel={() => void closeReserve()}
+        closable={!reserveLoading}
+        maskClosable={false}
+        footer={preReserve ? [
+          <Button key="cancel" onClick={() => void closeReserve()} disabled={reserveLoading}>Cancelar</Button>,
+          <Button key="confirm" type="primary" onClick={() => void finishReserve()} loading={reserveLoading} disabled={!colegaId || secondsLeft === 0}>Confirmar reserva</Button>,
+        ] : [
+          <Button key="cancel" onClick={() => void closeReserve()} disabled={reserveLoading}>Cancelar</Button>,
+          <Button key="continue" type="primary" onClick={() => void startPreReserve()} loading={reserveLoading} disabled={!reserveInfo}>Continuar</Button>,
+        ]}
+        destroyOnHidden
+      >
+        {reserveTurno ? <p className="alert-slot"><strong>{reserveTurno.servicioNombre}</strong><span>{prettyDate(reserveTurno.fecha)} · {reserveTurno.hora.slice(0, 5)} a {reserveTurno.horafin.slice(0, 5)}</span></p> : null}
+        {reserveLoading && !reserveInfo ? <Skeleton active paragraph={{ rows: 2 }} /> : null}
+        {reserveInfo && !preReserve ? <Alert type={reserveInfo.genera_deuda ? "warning" : "info"} showIcon message={reserveInfo.mensaje || "El turno está disponible"} description="Al continuar, Brio lo bloqueará durante 2 minutos mientras elegís a tu compañero." /> : null}
+        {preReserve ? <div className="reserve-companion"><Alert type={secondsLeft > 30 ? "info" : "warning"} showIcon message={secondsLeft > 0 ? `Tenés ${secondsLeft} segundos para confirmar` : "La pre-reserva venció"} /><label>Compañero</label><Select showSearch value={colegaId} onSearch={(value) => void searchColegas(value)} onChange={setColegaId} filterOption={false} loading={searchingColegas} placeholder="Escribí al menos 3 letras" notFoundContent={searchingColegas ? "Buscando…" : "Sin resultados"} options={colegas.map((colega) => ({ value: colega.socioid, label: `${colega.apellidonombre} · DNI ${colega.documento}` }))} /></div> : null}
       </Modal>
       <footer><span className="tennis-ball tiny-ball" /> Tenis Santivillabrile · Datos provistos por Brio Club</footer>
     </main>

@@ -39,3 +39,30 @@ export type AlertaTurno = {
   servicioNombre: string;
   createdAt: string;
 };
+
+export type ConsultaReserva = {
+  status: boolean;
+  mensaje: string;
+  turnoid: string;
+  costo_turno: number;
+  genera_deuda?: boolean;
+};
+
+export type PreReserva = ConsultaReserva & {
+  timer: number;
+  min: number;
+  max: number;
+  mul: number;
+};
+
+export type Colega = {
+  apellidonombre: string;
+  documento: number;
+  socioid: string;
+};
+
+export type ReservaConfirmada = {
+  status: boolean;
+  titulo: string;
+  mensaje: string;
+};

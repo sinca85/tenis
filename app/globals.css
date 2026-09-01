@@ -76,6 +76,9 @@ a { color: inherit; }
 .alert-slot { margin: 4px 0 22px; padding: 15px 17px; display: flex; justify-content: space-between; gap: 16px; background: #fff6eb; border-radius: 14px; }
 .alert-slot span { color: var(--muted); text-transform: capitalize; }
 .alert-note { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.reserve-companion { display: grid; gap: 12px; }
+.reserve-companion > label { margin-top: 6px; color: #5f5147; font-size: 13px; font-weight: 700; }
+.reserve-companion .ant-select { width: 100%; }
 footer { padding: 0 24px 40px; color: #9c8c80; font-size: 12px; text-align: center; }
 
 @media (max-width: 900px) {

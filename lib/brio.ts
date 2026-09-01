@@ -1,4 +1,4 @@
-import type { Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
+import type { Colega, ConsultaReserva, PreReserva, ReservaConfirmada, Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LOGIN_PATH = "/accounts/login/";
@@ -112,6 +112,72 @@ async function getBrioCookie() {
     sessionPromise = null;
     throw error;
   }
+}
+
+async function brioJson<T>(path: string): Promise<T> {
+  const response = await fetch(new URL(path, BRIO_BASE_URL), {
+    headers: { Accept: "application/json", Cookie: await getBrioCookie(), "User-Agent": "tenis.santivillabrile.com" },
+    cache: "no-store",
+    redirect: "manual",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (response.status >= 300 && response.status < 400) {
+    sessionPromise = null;
+    throw new Error("La sesión de Brio venció; volvé a intentar");
+  }
+  if (!response.ok) throw new Error(`Brio respondió ${response.status}`);
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) throw new Error("Brio no devolvió una respuesta válida");
+  return response.json() as Promise<T>;
+}
+
+function validId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export async function consultarReserva(turnoId: string) {
+  if (!validId(turnoId)) throw new Error("Turno inválido");
+  const response = await brioJson<ConsultaReserva>(`/turno/consultar/${turnoId}/socio/${BRIO_SOCIO_ID}/`);
+  if (!response.status) throw new Error(response.mensaje || "El turno ya no está disponible");
+  return response;
+}
+
+export async function iniciarPreReserva(turnoId: string) {
+  if (!validId(turnoId)) throw new Error("Turno inválido");
+  const response = await brioJson<PreReserva>(`/turno/prereserva/${turnoId}/socio/${BRIO_SOCIO_ID}/`);
+  if (!response.status) throw new Error(response.mensaje || "El turno ya no está disponible");
+  return response;
+}
+
+export async function buscarColegas(turnoId: string, search: string) {
+  if (!validId(turnoId)) throw new Error("Turno inválido");
+  const params = new URLSearchParams({
+    turnoid: turnoId,
+    reservarcanchas: "true",
+    guid: BRIO_SOCIO_ID,
+    sede: String(BRIO_SEDE_ID),
+    serviciotipo: String(BRIO_TIPO_SERVICIO_ID),
+    search: search.trim(),
+  });
+  const response = await brioJson<{ status?: boolean; data?: Colega[] }>(`/turno/getcolegas/?${params}`);
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function confirmarReserva(turnoId: string, colegaId: string) {
+  if (!validId(turnoId) || !validId(colegaId)) throw new Error("Datos de reserva inválidos");
+  const discarded = await cancelarPreReserva(turnoId);
+  if (!discarded.status) throw new Error("Brio no pudo completar la pre-reserva");
+  const socios = encodeURIComponent(`|${BRIO_SOCIO_ID}|${colegaId}`);
+  const response = await brioJson<ReservaConfirmada>(
+    `/turno/${turnoId}/modificaradmin/${socios}/socios/%7C/?cobrar_turno=true`,
+  );
+  if (!response.status) throw new Error(response.mensaje || "Brio no pudo confirmar la reserva");
+  return response;
+}
+
+export async function cancelarPreReserva(turnoId: string) {
+  if (!validId(turnoId)) throw new Error("Turno inválido");
+  return brioJson<{ status: boolean }>(`/turno/desestimar/${turnoId}/`);
 }
 
 export async function getTurnos(fecha: string): Promise<Turno[]> {
