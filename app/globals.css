@@ -69,6 +69,7 @@ a { color: inherit; }
 .slots-table .ant-table-thead > tr > th { padding-block: 18px; color: #9b8b7f; font-size: 10px; letter-spacing: .12em; }
 .slots-table .ant-table-tbody > tr > td { padding-block: 17px; border-bottom-color: #f0e8df; }
 .slots-table .ant-tag { margin: 0; padding-inline: 12px; border: 0; border-radius: 999px; }
+.mobile-only { display: none; }
 .time-cell { font-size: 16px; font-weight: 800; }
 .time-cell small { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .results-state { min-height: 235px; padding: 32px; display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid var(--line); border-radius: 22px; }
@@ -94,18 +95,35 @@ footer { padding: 0 24px 40px; color: #9c8c80; font-size: 12px; text-align: cent
 }
 
 @media (max-width: 600px) {
+  html, body, .dashboard { max-width: 100%; overflow-x: hidden; }
   .topbar { height: 66px; }
   .user-name { display: none; }
   .topbar .ant-btn { padding-inline: 6px; }
-  .hero { padding: 48px 20px 42px; }
-  .hero h1 { font-size: 50px; }
+  .hero { position: relative; padding: 40px 20px 30px; }
+  .hero h1 { position: relative; z-index: 1; max-width: 330px; font-size: 46px; }
   .hero-copy { font-size: 15px; }
+  .hero-ball-wrap { width: 180px; height: 180px; right: -58px; top: 74px; overflow: hidden; }
+  .hero-ball { width: 180px; height: 180px; right: 0; }
   .date-strip { margin-inline: 14px; padding: 17px; border-radius: 18px; }
   .quick-dates { display: grid; grid-template-columns: repeat(3, 1fr); }
   .results { padding: 42px 14px 64px; }
   .results-head { align-items: flex-start; flex-direction: column; }
   .results-actions { width: 100%; justify-content: space-between; }
   .slots-table { border-radius: 18px; }
+  .slots-table .ant-table-thead > tr > th, .slots-table .ant-table-tbody > tr > td { padding: 14px 7px; }
+  .slots-table .slot-time-column { width: 39%; padding-left: 12px !important; }
+  .slots-table .slot-court-column { width: 12%; text-align: center; }
+  .slots-table .slot-status-column { width: 9%; text-align: center; }
+  .slots-table .slot-action-column { width: 40%; padding-right: 10px !important; }
+  .desktop-only { display: none !important; }
+  .mobile-only { display: inline-flex; }
+  .court-short { font-weight: 750; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 3px #fff; }
+  .status-dot.available { background: #36a852; }
+  .status-dot.occupied { background: #e5484d; }
+  .slot-action { height: 34px; padding-inline: 10px; font-size: 12px; }
+  .time-cell { font-size: 14px; white-space: nowrap; }
+  .time-cell small { font-size: 10px; }
   .login-card { padding-inline: 24px; }
   .login-card h1 { font-size: 48px; }
 }
