@@ -1,7 +1,7 @@
 "use client";
 
 import { BellOutlined, CalendarOutlined, ClockCircleOutlined, LogoutOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Alert, App, Button, DatePicker, Empty, Form, Input, Modal, Skeleton, Table, Tag } from "antd";
+import { Alert, App, Button, DatePicker, Empty, Form, Input, Modal, Skeleton, Switch, Table, Tag } from "antd";
 import type { TableColumnsType } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
@@ -35,6 +35,7 @@ export default function TurnosDashboard({ username }: { username: string }) {
   const [updated, setUpdated] = useState<Date | null>(null);
   const [selected, setSelected] = useState<TurnoAgenda | null>(null);
   const [savingAlert, setSavingAlert] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -55,6 +56,10 @@ export default function TurnosDashboard({ username }: { username: string }) {
   }, [load]);
   const courts = useMemo(() => new Set(turnos.map((turno) => turno.servicio_id)).size, [turnos]);
   const availableCount = useMemo(() => turnos.filter((turno) => turno.disponible).length, [turnos]);
+  const visibleTurnos = useMemo(
+    () => showAll ? turnos : turnos.filter((turno) => turno.disponible),
+    [showAll, turnos],
+  );
   const openAlert = useCallback((turno: TurnoAgenda) => {
     form.resetFields();
     setSelected(turno);
@@ -115,10 +120,10 @@ export default function TurnosDashboard({ username }: { username: string }) {
       </section>
       <section className="results">
         <div className="results-head">
-          <div><p className="eyebrow"><ClockCircleOutlined /> TURNOS Y DISPONIBILIDAD</p><h2>{prettyDate(fecha)}</h2><p className="muted">{loading ? "Consultando canchas…" : `${availableCount} disponibles de ${turnos.length} turnos futuros en ${courts} canchas`}{updated && !loading ? ` · actualizado ${updated.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p></div>
-          <Button onClick={() => void load()} disabled={loading} icon={<ReloadOutlined spin={loading} />}>{loading ? "Actualizando" : "Actualizar"}</Button>
+          <div><p className="eyebrow"><ClockCircleOutlined /> TURNOS Y DISPONIBILIDAD</p><h2>{prettyDate(fecha)}</h2><p className="muted">{loading ? "Consultando canchas…" : showAll ? `${availableCount} disponibles de ${turnos.length} turnos futuros en ${courts} canchas` : `${availableCount} turnos disponibles en ${courts} canchas`}{updated && !loading ? ` · actualizado ${updated.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p></div>
+          <div className="results-actions"><label className="availability-toggle"><Switch checked={showAll} onChange={setShowAll} /><span>Mostrar todos</span></label><Button onClick={() => void load()} disabled={loading} icon={<ReloadOutlined spin={loading} />}>{loading ? "Actualizando" : "Actualizar"}</Button></div>
         </div>
-        {error ? <Alert className="results-state" message="No pudimos consultar Brio" description={error} type="error" showIcon action={<Button onClick={() => void load()}>Reintentar</Button>} /> : loading ? <div className="results-state"><Skeleton active paragraph={{ rows: 4 }} /></div> : turnos.length === 0 ? <div className="results-state"><Empty description="No hay turnos disponibles para esta fecha" /></div> : <Table className="slots-table" columns={columns} dataSource={turnos} rowKey="id" pagination={false} scroll={{ x: 680 }} />}
+        {error ? <Alert className="results-state" message="No pudimos consultar Brio" description={error} type="error" showIcon action={<Button onClick={() => void load()}>Reintentar</Button>} /> : loading ? <div className="results-state"><Skeleton active paragraph={{ rows: 4 }} /></div> : visibleTurnos.length === 0 ? <div className="results-state"><Empty description={showAll ? "No hay turnos futuros para esta fecha" : "No hay turnos disponibles para esta fecha"} /></div> : <Table className="slots-table" columns={columns} dataSource={visibleTurnos} rowKey="id" pagination={false} scroll={{ x: 680 }} />}
       </section>
       <Modal title="Avisarme si se libera" open={Boolean(selected)} onCancel={() => setSelected(null)} footer={null} destroyOnHidden>
         {selected ? <p className="alert-slot"><strong>{selected.servicioNombre}</strong><span>{prettyDate(selected.fecha)} · {selected.hora.slice(0, 5)} a {selected.horafin.slice(0, 5)}</span></p> : null}

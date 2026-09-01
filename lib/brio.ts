@@ -14,6 +14,7 @@ const CANCHAS = [
   { id: 14, nombre: "Cancha 01" },
   { id: 15, nombre: "Cancha 02" },
   { id: 16, nombre: "Cancha 03" },
+  { id: 17, nombre: "Cancha 04" },
 ] as const;
 const HORARIOS = [
   "08:00:00", "09:15:00", "10:30:00", "11:45:00", "13:00:00", "14:15:00",
