@@ -24,7 +24,7 @@ a { color: inherit; }
 .eyebrow { margin: 0 0 13px; color: var(--orange); font-size: 11px; font-weight: 850; letter-spacing: .15em; }
 .muted { color: var(--muted); line-height: 1.55; }
 
-.login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, .9fr) minmax(480px, 1.1fr); }
+.login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 3fr) minmax(380px, 2fr); }
 .login-card { width: min(520px, 100%); padding: 8vh clamp(28px, 7vw, 110px); display: flex; flex-direction: column; justify-content: center; }
 .login-card .brand { margin-bottom: clamp(70px, 12vh, 130px); }
 .login-card h1 { margin: 0 0 22px; max-width: 520px; font-size: clamp(44px, 5.4vw, 75px); line-height: .98; letter-spacing: -.065em; }
