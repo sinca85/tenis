@@ -18,9 +18,11 @@ El proyecto está preparado para Node/Next.js y salida standalone. Configurar la
 
 - Login privado con cookie firmada y `httpOnly`.
 - Consulta server-side a Brio, sin exponer el ID de socio.
-- Soporte para la cookie autenticada de Brio mediante `BRIO_COOKIE`.
+- Login automático en Brio con `USERNAME` y `PASSWORD`.
+- Obtención automática de cookie CSRF, `csrfmiddlewaretoken` y `sessionid`.
+- `BRIO_TOKEN` como fallback opcional y `BRIO_COOKIE` como alternativa manual.
 - Búsqueda consolidada por fecha y todas las horas configuradas.
 - Tabla responsive y acceso al portal para reservar.
 - Bloque visual preparado para incorporar alertas en la siguiente etapa.
 
-El endpoint de disponibilidad redirige al login cuando no recibe una sesión de Brio. Para probarlo hoy se puede copiar `csrftoken` y `sessionid` de una sesión propia a `BRIO_COOKIE`; para producción conviene automatizar ese login o solicitar una API oficial. La reserva directa y las alertas también requieren estudiar ese flujo autenticado y elegir un canal de aviso (email, Telegram o WhatsApp).
+El servidor abre el formulario de Brio, toma un token CSRF fresco, inicia sesión y conserva temporalmente la cookie autenticada. `BRIO_TOKEN` solo se utiliza si el formulario no incluye el token; normalmente puede quedar vacío. También se puede evitar el login automático proporcionando directamente `BRIO_COOKIE`. La reserva directa y las alertas requieren estudiar el endpoint de confirmación y elegir un canal de aviso (email, Telegram o WhatsApp).
