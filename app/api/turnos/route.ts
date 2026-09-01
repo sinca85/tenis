@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import { getTurnos } from "@/lib/brio";
+import { getAgenda } from "@/lib/brio";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
   const fecha = request.nextUrl.searchParams.get("fecha") || "";
   try {
-    const data = await getTurnos(fecha);
+    const data = await getAgenda(fecha);
     return Response.json({ status: true, data, consultedAt: new Date().toISOString() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error inesperado";

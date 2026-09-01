@@ -1,4 +1,4 @@
-import type { Turno, TurnosResponse } from "@/lib/types";
+import type { Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LOGIN_PATH = "/accounts/login/";
@@ -9,6 +9,16 @@ const BRIO_SEDE_ID = 4;
 const BRIO_TIPO_SERVICIO_ID = 1;
 const BRIO_HORA_DESDE = 7;
 const BRIO_HORA_HASTA = 23;
+const TIME_ZONE = "America/Argentina/Cordoba";
+const CANCHAS = [
+  { id: 14, nombre: "Cancha 01" },
+  { id: 15, nombre: "Cancha 02" },
+  { id: 16, nombre: "Cancha 03" },
+] as const;
+const HORARIOS = [
+  "08:00:00", "09:15:00", "10:30:00", "11:45:00", "13:00:00", "14:15:00",
+  "15:30:00", "16:45:00", "18:00:00", "19:15:00", "20:30:00", "21:45:00",
+] as const;
 
 type BrioSession = { cookie: string; expiresAt: number };
 
@@ -154,5 +164,52 @@ export async function getTurnos(fecha: string): Promise<Turno[]> {
   successful.flatMap((result) => result.value).forEach((turno) => unique.set(turno.id, turno));
   return [...unique.values()]
     .filter((turno) => turno.activo && !turno.locked)
+    .sort((a, b) => `${a.hora}-${a.servicioNombre}`.localeCompare(`${b.hora}-${b.servicioNombre}`));
+}
+
+function argentinaNow() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return { date: `${value.year}-${value.month}-${value.day}`, time: `${value.hour}:${value.minute}` };
+}
+
+function endTime(start: string) {
+  const [hour, minute] = start.split(":").map(Number);
+  const total = hour * 60 + minute + 60;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}:00`;
+}
+
+export async function getAgenda(fecha: string): Promise<TurnoAgenda[]> {
+  const disponibles = await getTurnos(fecha);
+  const bySlot = new Map(
+    disponibles.map((turno) => [`${turno.servicio_id}:${turno.hora}`, turno] as const),
+  );
+  const now = argentinaNow();
+
+  if (fecha < now.date) return [];
+
+  return HORARIOS.flatMap((hora) =>
+    CANCHAS.map((cancha): TurnoAgenda => {
+      const libre = bySlot.get(`${cancha.id}:${hora}`);
+      return {
+        id: libre?.id || `ocupado-${fecha}-${cancha.id}-${hora.slice(0, 5).replace(":", "")}`,
+        fecha,
+        hora,
+        horafin: libre?.horafin || endTime(hora),
+        servicio_id: cancha.id,
+        servicioNombre: cancha.nombre,
+        disponible: Boolean(libre),
+      };
+    }),
+  )
+    .filter((turno) => fecha !== now.date || turno.hora.slice(0, 5) > now.time)
     .sort((a, b) => `${a.hora}-${a.servicioNombre}`.localeCompare(`${b.hora}-${b.servicioNombre}`));
 }

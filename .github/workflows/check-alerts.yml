@@ -1,0 +1,16 @@
+name: Check tennis availability alerts
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Brio availability
+        run: >-
+          curl --fail --silent --show-error
+          --header "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          https://tenis.santivillaabrille.com/api/cron/alertas

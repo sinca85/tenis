@@ -1,6 +1,6 @@
 "use client";
 
-import { ConfigProvider, theme } from "antd";
+import { App, ConfigProvider, theme } from "antd";
 import esES from "antd/locale/es_ES";
 
 export default function AntProvider({ children }: { children: React.ReactNode }) {
@@ -30,7 +30,7 @@ export default function AntProvider({ children }: { children: React.ReactNode })
         },
       }}
     >
-      {children}
+      <App>{children}</App>
     </ConfigProvider>
   );
 }

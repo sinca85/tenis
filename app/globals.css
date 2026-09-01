@@ -71,6 +71,9 @@ a { color: inherit; }
 .time-cell small { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .results-state { min-height: 235px; padding: 32px; display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid var(--line); border-radius: 22px; }
 .results-state.ant-alert { justify-content: flex-start; }
+.alert-slot { margin: 4px 0 22px; padding: 15px 17px; display: flex; justify-content: space-between; gap: 16px; background: #fff6eb; border-radius: 14px; }
+.alert-slot span { color: var(--muted); text-transform: capitalize; }
+.alert-note { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 footer { padding: 0 24px 40px; color: #9c8c80; font-size: 12px; text-align: center; }
 
 @media (max-width: 900px) {
