@@ -3,6 +3,12 @@ import type { Turno, TurnosResponse } from "@/lib/types";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LOGIN_PATH = "/accounts/login/";
 const SESSION_TTL_MS = 20 * 60 * 1_000;
+const BRIO_BASE_URL = "https://neptunia.brio.club";
+const BRIO_SOCIO_ID = "565be911-6d72-4b32-8714-e192333ee7ad";
+const BRIO_SEDE_ID = 4;
+const BRIO_TIPO_SERVICIO_ID = 1;
+const BRIO_HORA_DESDE = 7;
+const BRIO_HORA_HASTA = 23;
 
 type BrioSession = { cookie: string; expiresAt: number };
 
@@ -32,9 +38,9 @@ function hiddenCsrfToken(html: string) {
 }
 
 async function loginToBrio(): Promise<BrioSession> {
-  const baseUrl = process.env.BRIO_BASE_URL || "https://neptunia.brio.club";
-  const username = process.env.USERNAME || process.env.BRIO_USERNAME;
-  const password = process.env.PASSWORD || process.env.BRIO_PASSWORD;
+  const baseUrl = BRIO_BASE_URL;
+  const username = process.env.USERNAME;
+  const password = process.env.PASSWORD;
 
   if (!username || !password) {
     throw new Error("Falta configurar USERNAME y PASSWORD para iniciar sesión en Brio");
@@ -82,7 +88,6 @@ async function loginToBrio(): Promise<BrioSession> {
 }
 
 async function getBrioCookie() {
-  if (process.env.BRIO_COOKIE) return process.env.BRIO_COOKIE;
   if (!sessionPromise) sessionPromise = loginToBrio();
 
   try {
@@ -101,21 +106,16 @@ async function getBrioCookie() {
 export async function getTurnos(fecha: string): Promise<Turno[]> {
   if (!DATE_PATTERN.test(fecha)) throw new Error("Fecha inválida");
 
-  const baseUrl = process.env.BRIO_BASE_URL || "https://neptunia.brio.club";
-  const sede = process.env.BRIO_SEDE_ID || "4";
-  const servicio = process.env.BRIO_TIPO_SERVICIO_ID || "1";
-  const socio = process.env.BRIO_SOCIO_ID;
-  const desde = Number(process.env.BRIO_HORA_DESDE || 7);
-  const hasta = Number(process.env.BRIO_HORA_HASTA || 23);
-
-  if (!socio) throw new Error("Falta configurar BRIO_SOCIO_ID");
   const cookie = await getBrioCookie();
 
-  const requests = Array.from({ length: hasta - desde + 1 }, (_, index) => desde + index).map(
+  const requests = Array.from(
+    { length: BRIO_HORA_HASTA - BRIO_HORA_DESDE + 1 },
+    (_, index) => BRIO_HORA_DESDE + index,
+  ).map(
     async (hora) => {
       const url = new URL(
-        `/turno/sede/${sede}/st/${servicio}/fecha/${fecha}/socio/${socio}/horario/${hora}/turnos/json`,
-        baseUrl,
+        `/turno/sede/${BRIO_SEDE_ID}/st/${BRIO_TIPO_SERVICIO_ID}/fecha/${fecha}/socio/${BRIO_SOCIO_ID}/horario/${hora}/turnos/json`,
+        BRIO_BASE_URL,
       );
       const response = await fetch(url, {
         headers: { Accept: "application/json", Cookie: cookie, "User-Agent": "tenis.santivillabrile.com" },

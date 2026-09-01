@@ -18,9 +18,9 @@ export default async function LoginPage({
         <h1>Encontrá cancha.<br />Jugá más.</h1>
         <p className="muted">Consultá todos los turnos de tenis disponibles en Neptunia desde un solo lugar.</p>
         <form action="/api/login" method="post" className="login-form">
-          <label>Email<input name="email" type="email" required autoComplete="email" placeholder="vos@ejemplo.com" /></label>
+          <label>Usuario<input name="username" type="text" required autoComplete="username" placeholder="Tu usuario" /></label>
           <label>Contraseña<input name="password" type="password" required autoComplete="current-password" placeholder="••••••••" /></label>
-          {error && <p className="form-error">Email o contraseña incorrectos.</p>}
+          {error && <p className="form-error">Usuario o contraseña incorrectos.</p>}
           <button type="submit" className="primary-button">Ingresar <span>→</span></button>
         </form>
         <p className="tiny">Acceso privado · tenis.santivillabrile.com</p>

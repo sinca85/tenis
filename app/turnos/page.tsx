@@ -6,5 +6,5 @@ import TurnosDashboard from "./turnos-dashboard";
 export default async function TurnosPage() {
   const session = verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (!session) redirect("/login");
-  return <TurnosDashboard email={session.email} />;
+  return <TurnosDashboard username={session.username} />;
 }

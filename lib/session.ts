@@ -7,9 +7,9 @@ function secret() {
   return process.env.SESSION_SECRET || "desarrollo-cambiar-este-secreto";
 }
 
-export function createSession(email: string) {
+export function createSession(username: string) {
   const expires = Math.floor(Date.now() / 1000) + MAX_AGE;
-  const payload = Buffer.from(JSON.stringify({ email, expires })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ username, expires })).toString("base64url");
   const signature = createHmac("sha256", secret()).update(payload).digest("base64url");
   return `${payload}.${signature}`;
 }
@@ -25,10 +25,10 @@ export function verifySession(token?: string) {
 
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
-      email: string;
+      username: string;
       expires: number;
     };
-    return parsed.expires > Date.now() / 1000 ? parsed : null;
+    return typeof parsed.username === "string" && parsed.expires > Date.now() / 1000 ? parsed : null;
   } catch {
     return null;
   }

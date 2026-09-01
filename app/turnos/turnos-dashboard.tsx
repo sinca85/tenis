@@ -13,7 +13,7 @@ function prettyDate(value: string) {
   return new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00`));
 }
 
-export default function TurnosDashboard({ email }: { email: string }) {
+export default function TurnosDashboard({ username }: { username: string }) {
   const [fecha, setFecha] = useState(localDate());
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ export default function TurnosDashboard({ email }: { email: string }) {
     <main className="dashboard">
       <header className="topbar">
         <a href="/turnos" className="logo"><span>⇗</span> TENIS</a>
-        <nav><span className="user-email">{email}</span><form action="/api/logout" method="post"><button className="text-button">Salir</button></form></nav>
+        <nav><span className="user-email">{username}</span><form action="/api/logout" method="post"><button className="text-button">Salir</button></form></nav>
       </header>
       <section className="hero">
         <div><p className="eyebrow">NEPTUNIA · DISPONIBILIDAD EN VIVO</p><h1>Tu próximo partido<br />empieza acá.</h1></div>
