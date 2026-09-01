@@ -1,10 +1,14 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { BRIO_SESSION_COOKIE, verifyBrioSession } from "@/lib/brio-session";
 import TurnosDashboard from "./turnos-dashboard";
 
 export default async function TurnosPage() {
-  const session = verifySession((await cookies()).get(SESSION_COOKIE)?.value);
+  const cookieStore = await cookies();
+  const session = verifySession(cookieStore.get(SESSION_COOKIE)?.value);
   if (!session) redirect("/login");
-  return <TurnosDashboard username={session.username} />;
+  const brio = verifyBrioSession(cookieStore.get(BRIO_SESSION_COOKIE)?.value);
+  if (!brio) redirect("/brio-login");
+  return <TurnosDashboard username={brio.username} />;
 }

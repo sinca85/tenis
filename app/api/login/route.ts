@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=1", request.url), 303);
   }
 
-  const response = NextResponse.redirect(new URL("/turnos", request.url), 303);
+  const response = NextResponse.redirect(new URL("/brio-login", request.url), 303);
   response.cookies.set(SESSION_COOKIE, createSession(username), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

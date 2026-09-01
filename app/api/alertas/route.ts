@@ -3,13 +3,17 @@ import { alertId, saveAlert } from "@/lib/alerts";
 import { getAgenda } from "@/lib/brio";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 import type { AlertaTurno } from "@/lib/types";
+import { BRIO_SESSION_COOKIE, verifyBrioSession } from "@/lib/brio-session";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
-  if (!verifySession((await cookies()).get(SESSION_COOKIE)?.value)) {
+  const cookieStore = await cookies();
+  if (!verifySession(cookieStore.get(SESSION_COOKIE)?.value)) {
     return Response.json({ status: false, error: "No autorizado" }, { status: 401 });
   }
+  const brio = verifyBrioSession(cookieStore.get(BRIO_SESSION_COOKIE)?.value);
+  if (!brio) return Response.json({ status: false, error: "Iniciá sesión en Neptunia" }, { status: 401 });
 
   try {
     const body = (await request.json()) as Partial<AlertaTurno>;
@@ -21,7 +25,7 @@ export async function POST(request: Request) {
       return Response.json({ status: false, error: "Ingresá un email válido" }, { status: 400 });
     }
 
-    const agenda = await getAgenda(fecha);
+    const agenda = await getAgenda(fecha, brio);
     const turno = agenda.find((item) => item.hora === hora && item.servicio_id === servicioId);
     if (!turno) return Response.json({ status: false, error: "El turno ya pasó o no existe" }, { status: 400 });
     if (turno.disponible) return Response.json({ status: false, error: "El turno ya está disponible" }, { status: 409 });

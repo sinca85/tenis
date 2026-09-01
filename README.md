@@ -18,15 +18,15 @@ El proyecto está preparado para desplegarse directamente en Vercel. Configurar 
 
 - Login privado con cookie firmada y `httpOnly`.
 - Consulta server-side a Brio, sin exponer el ID de socio.
-- Login automático en Brio con `USERNAME` y `PASSWORD`.
+- Segundo login personal contra Brio, separado del acceso privado del sitio.
+- Detección automática del socio y almacenamiento cifrado de la sesión; la contraseña de Brio no se guarda.
 - Obtención automática de cookie CSRF, `csrfmiddlewaretoken` y `sessionid`.
-- `BRIO_TOKEN` como fallback opcional.
 - Búsqueda consolidada por fecha y todas las horas configuradas.
 - Grilla completa de turnos futuros: disponibles y ocupados.
-- Tabla responsive y acceso al portal para reservar.
+- Tabla responsive y reserva completa dentro del sitio.
 - Alertas por email cuando un turno ocupado vuelve a estar disponible.
 
-El servidor abre el formulario de Brio, toma un token CSRF fresco, inicia sesión y conserva temporalmente la cookie autenticada. `BRIO_TOKEN` solo se utiliza si el formulario no incluye el token; normalmente puede quedar vacío. La sede, el tipo de servicio, el rango horario, la URL y el socio son constantes internas del proyecto, no variables de entorno. La reserva directa continúa abriendo el portal oficial de Brio.
+El servidor abre el formulario de Brio, toma un token CSRF fresco e inicia sesión con los datos ingresados por cada usuario. Conserva únicamente la cookie autenticada y el socio detectado dentro de una cookie cifrada y `httpOnly`; la contraseña no se almacena. La sede, el tipo de servicio, el rango horario y la URL son constantes internas del proyecto.
 
 ## Activar alertas
 

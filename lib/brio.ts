@@ -1,10 +1,9 @@
 import type { Colega, ConsultaReserva, PreReserva, ReservaConfirmada, Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
+import type { BrioAuth } from "@/lib/brio-session";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LOGIN_PATH = "/accounts/login/";
-const SESSION_TTL_MS = 20 * 60 * 1_000;
 const BRIO_BASE_URL = "https://neptunia.brio.club";
-const BRIO_SOCIO_ID = "565be911-6d72-4b32-8714-e192333ee7ad";
 const BRIO_SEDE_ID = 4;
 const BRIO_TIPO_SERVICIO_ID = 1;
 const BRIO_HORA_DESDE = 7;
@@ -21,9 +20,7 @@ const HORARIOS = [
   "15:30:00", "16:45:00", "18:00:00", "19:15:00", "20:30:00", "21:45:00",
 ] as const;
 
-type BrioSession = { cookie: string; expiresAt: number };
-
-let sessionPromise: Promise<BrioSession> | null = null;
+let legacySessionPromise: Promise<BrioAuth> | null = null;
 
 function cookiePairs(response: Response) {
   const headers = response.headers as Headers & { getSetCookie?: () => string[] };
@@ -48,14 +45,9 @@ function hiddenCsrfToken(html: string) {
   return html.match(/name=["']csrfmiddlewaretoken["'][^>]*value=["']([^"']+)["']/i)?.[1];
 }
 
-async function loginToBrio(): Promise<BrioSession> {
+export async function authenticateBrio(username: string, password: string): Promise<BrioAuth> {
   const baseUrl = BRIO_BASE_URL;
-  const username = process.env.USERNAME;
-  const password = process.env.PASSWORD;
-
-  if (!username || !password) {
-    throw new Error("Falta configurar USERNAME y PASSWORD para iniciar sesión en Brio");
-  }
+  if (!username.trim() || !password) throw new Error("Ingresá tu usuario y contraseña de Neptunia");
 
   const loginUrl = new URL(LOGIN_PATH, baseUrl);
   const page = await fetch(loginUrl, {
@@ -95,35 +87,43 @@ async function loginToBrio(): Promise<BrioSession> {
     throw new Error("Brio rechazó el usuario o la contraseña");
   }
 
-  return { cookie, expiresAt: Date.now() + SESSION_TTL_MS };
+  const landing = await fetch(new URL(location || "/", baseUrl), {
+    headers: { Accept: "text/html", Cookie: cookie, "User-Agent": "tenis.santivillabrile.com" },
+    cache: "no-store",
+    redirect: "follow",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!landing.ok) throw new Error("No pudimos obtener el socio asociado a esta cuenta");
+  const landingHtml = await landing.text();
+  const socioId = landingHtml.match(/\/carnet\/([0-9a-f-]{36})\//i)?.[1];
+  if (!socioId || !validId(socioId)) throw new Error("Brio no informó el socio asociado a esta cuenta");
+  return { cookie: mergeCookies(cookie.split("; "), cookiePairs(landing)), socioId, username: username.trim() };
 }
 
-async function getBrioCookie() {
-  if (!sessionPromise) sessionPromise = loginToBrio();
-
+async function getLegacySession() {
+  if (!legacySessionPromise) {
+    const username = process.env.USERNAME;
+    const password = process.env.PASSWORD;
+    if (!username || !password) throw new Error("La tarea automática no tiene una sesión de Brio configurada");
+    legacySessionPromise = authenticateBrio(username, password);
+  }
   try {
-    const session = await sessionPromise;
-    if (session.expiresAt <= Date.now()) {
-      sessionPromise = loginToBrio();
-      return (await sessionPromise).cookie;
-    }
-    return session.cookie;
+    return await legacySessionPromise;
   } catch (error) {
-    sessionPromise = null;
+    legacySessionPromise = null;
     throw error;
   }
 }
 
-async function brioJson<T>(path: string): Promise<T> {
+async function brioJson<T>(auth: BrioAuth, path: string): Promise<T> {
   const response = await fetch(new URL(path, BRIO_BASE_URL), {
-    headers: { Accept: "application/json", Cookie: await getBrioCookie(), "User-Agent": "tenis.santivillabrile.com" },
+    headers: { Accept: "application/json", Cookie: auth.cookie, "User-Agent": "tenis.santivillabrile.com" },
     cache: "no-store",
     redirect: "manual",
     signal: AbortSignal.timeout(10_000),
   });
   if (response.status >= 300 && response.status < 400) {
-    sessionPromise = null;
-    throw new Error("La sesión de Brio venció; volvé a intentar");
+    throw new Error("Tu sesión de Neptunia venció; volvé a iniciar sesión");
   }
   if (!response.ok) throw new Error(`Brio respondió ${response.status}`);
   const contentType = response.headers.get("content-type") || "";
@@ -135,55 +135,55 @@ function validId(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export async function consultarReserva(turnoId: string) {
+export async function consultarReserva(auth: BrioAuth, turnoId: string) {
   if (!validId(turnoId)) throw new Error("Turno inválido");
-  const response = await brioJson<ConsultaReserva>(`/turno/consultar/${turnoId}/socio/${BRIO_SOCIO_ID}/`);
+  const response = await brioJson<ConsultaReserva>(auth, `/turno/consultar/${turnoId}/socio/${auth.socioId}/`);
   if (!response.status) throw new Error(response.mensaje || "El turno ya no está disponible");
   return response;
 }
 
-export async function iniciarPreReserva(turnoId: string) {
+export async function iniciarPreReserva(auth: BrioAuth, turnoId: string) {
   if (!validId(turnoId)) throw new Error("Turno inválido");
-  const response = await brioJson<PreReserva>(`/turno/prereserva/${turnoId}/socio/${BRIO_SOCIO_ID}/`);
+  const response = await brioJson<PreReserva>(auth, `/turno/prereserva/${turnoId}/socio/${auth.socioId}/`);
   if (!response.status) throw new Error(response.mensaje || "El turno ya no está disponible");
   return response;
 }
 
-export async function buscarColegas(turnoId: string, search: string) {
+export async function buscarColegas(auth: BrioAuth, turnoId: string, search: string) {
   if (!validId(turnoId)) throw new Error("Turno inválido");
   const params = new URLSearchParams({
     turnoid: turnoId,
     reservarcanchas: "true",
-    guid: BRIO_SOCIO_ID,
+    guid: auth.socioId,
     sede: String(BRIO_SEDE_ID),
     serviciotipo: String(BRIO_TIPO_SERVICIO_ID),
     search: search.trim(),
   });
-  const response = await brioJson<{ status?: boolean; data?: Colega[] }>(`/turno/getcolegas/?${params}`);
+  const response = await brioJson<{ status?: boolean; data?: Colega[] }>(auth, `/turno/getcolegas/?${params}`);
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function confirmarReserva(turnoId: string, colegaId: string) {
+export async function confirmarReserva(auth: BrioAuth, turnoId: string, colegaId: string) {
   if (!validId(turnoId) || !validId(colegaId)) throw new Error("Datos de reserva inválidos");
-  const discarded = await cancelarPreReserva(turnoId);
+  const discarded = await cancelarPreReserva(auth, turnoId);
   if (!discarded.status) throw new Error("Brio no pudo completar la pre-reserva");
-  const socios = encodeURIComponent(`|${BRIO_SOCIO_ID}|${colegaId}`);
-  const response = await brioJson<ReservaConfirmada>(
+  const socios = encodeURIComponent(`|${auth.socioId}|${colegaId}`);
+  const response = await brioJson<ReservaConfirmada>(auth,
     `/turno/${turnoId}/modificaradmin/${socios}/socios/%7C/?cobrar_turno=true`,
   );
   if (!response.status) throw new Error(response.mensaje || "Brio no pudo confirmar la reserva");
   return response;
 }
 
-export async function cancelarPreReserva(turnoId: string) {
+export async function cancelarPreReserva(auth: BrioAuth, turnoId: string) {
   if (!validId(turnoId)) throw new Error("Turno inválido");
-  return brioJson<{ status: boolean }>(`/turno/desestimar/${turnoId}/`);
+  return brioJson<{ status: boolean }>(auth, `/turno/desestimar/${turnoId}/`);
 }
 
-export async function getTurnos(fecha: string): Promise<Turno[]> {
+export async function getTurnos(fecha: string, userAuth?: BrioAuth): Promise<Turno[]> {
   if (!DATE_PATTERN.test(fecha)) throw new Error("Fecha inválida");
 
-  const cookie = await getBrioCookie();
+  const auth = userAuth || await getLegacySession();
 
   const requests = Array.from(
     { length: BRIO_HORA_HASTA - BRIO_HORA_DESDE + 1 },
@@ -191,18 +191,17 @@ export async function getTurnos(fecha: string): Promise<Turno[]> {
   ).map(
     async (hora) => {
       const url = new URL(
-        `/turno/sede/${BRIO_SEDE_ID}/st/${BRIO_TIPO_SERVICIO_ID}/fecha/${fecha}/socio/${BRIO_SOCIO_ID}/horario/${hora}/turnos/json`,
+        `/turno/sede/${BRIO_SEDE_ID}/st/${BRIO_TIPO_SERVICIO_ID}/fecha/${fecha}/socio/${auth.socioId}/horario/${hora}/turnos/json`,
         BRIO_BASE_URL,
       );
       const response = await fetch(url, {
-        headers: { Accept: "application/json", Cookie: cookie, "User-Agent": "tenis.santivillabrile.com" },
+        headers: { Accept: "application/json", Cookie: auth.cookie, "User-Agent": "tenis.santivillabrile.com" },
         cache: "no-store",
         redirect: "manual",
         signal: AbortSignal.timeout(8_000),
       });
       if (response.status >= 300 && response.status < 400) {
-        sessionPromise = null;
-        throw new Error("La sesión de Brio venció; volvé a actualizar para iniciar otra");
+        throw new Error("Tu sesión de Neptunia venció; volvé a iniciar sesión");
       }
       if (!response.ok) throw new Error(`Brio respondió ${response.status} para las ${hora}hs`);
       const contentType = response.headers.get("content-type") || "";
@@ -254,8 +253,8 @@ function endTime(start: string) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}:00`;
 }
 
-export async function getAgenda(fecha: string): Promise<TurnoAgenda[]> {
-  const disponibles = await getTurnos(fecha);
+export async function getAgenda(fecha: string, auth?: BrioAuth): Promise<TurnoAgenda[]> {
+  const disponibles = await getTurnos(fecha, auth);
   const bySlot = new Map(
     disponibles.map((turno) => [`${turno.servicio_id}:${turno.hora}`, turno] as const),
   );

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { BRIO_SESSION_COOKIE, verifyBrioSession } from "@/lib/brio-session";
 import LoginForm from "./login-form";
 
 export default async function LoginPage({
@@ -9,7 +10,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  if (verifySession((await cookies()).get(SESSION_COOKIE)?.value)) redirect("/turnos");
+  const cookieStore = await cookies();
+  if (verifySession(cookieStore.get(SESSION_COOKIE)?.value)) {
+    redirect(verifyBrioSession(cookieStore.get(BRIO_SESSION_COOKIE)?.value) ? "/turnos" : "/brio-login");
+  }
   const { error } = await searchParams;
 
   return (
