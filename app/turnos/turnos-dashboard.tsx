@@ -8,6 +8,7 @@ import "dayjs/locale/es";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Colega, ConsultaReserva, PreReserva, TurnoAgenda } from "@/lib/types";
+import MemberMenu, { type MemberOption } from "@/app/member-menu";
 
 function localDate(offset = 0) {
   const date = new Date();
@@ -25,7 +26,7 @@ function duration(turno: TurnoAgenda) {
   return endHour * 60 + endMinute - startHour * 60 - startMinute;
 }
 
-export default function TurnosDashboard({ name }: { name: string }) {
+export default function TurnosDashboard({ currentMemberId, members }: { currentMemberId: string; members: MemberOption[] }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<{ email: string }>();
   const [fecha, setFecha] = useState(localDate());
@@ -203,7 +204,7 @@ export default function TurnosDashboard({ name }: { name: string }) {
     <main className="dashboard">
       <header className="topbar">
         <Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link>
-        <nav><Button href="/reservas" type="text" icon={<CalendarOutlined />}>Mis reservas</Button><span className="user-name">Hola, {name}</span><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
+        <nav><Button href="/reservas" type="text" icon={<CalendarOutlined />}>Mis reservas</Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
       </header>
       <section className="hero">
         <div><p className="eyebrow">NEPTUNIA · DISPONIBILIDAD EN VIVO</p><p className="hero-copy">Elegí el día, encontrá tu horario y seguí jugando.</p></div>

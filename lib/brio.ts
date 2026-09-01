@@ -1,5 +1,5 @@
 import type { Colega, ConsultaCancelacion, ConsultaReserva, PreReserva, ReservaConfirmada, ReservaUsuario, Turno, TurnoAgenda, TurnosResponse } from "@/lib/types";
-import type { BrioAuth } from "@/lib/brio-session";
+import type { BrioAuth, BrioMember } from "@/lib/brio-session";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LOGIN_PATH = "/accounts/login/";
@@ -98,13 +98,23 @@ export async function authenticateBrio(username: string, password: string): Prom
   const socioId = landingHtml.match(/\/carnet\/([0-9a-f-]{36})\//i)?.[1];
   if (!socioId || !validId(socioId)) throw new Error("Brio no informó el socio asociado a esta cuenta");
   const authenticatedCookie = mergeCookies(cookie.split("; "), cookiePairs(landing));
-  const profile = await fetch(new URL(`/turno/admin/socio/${socioId}/`, baseUrl), {
-    headers: { Accept: "application/json", Cookie: authenticatedCookie, "User-Agent": "tenis.santivillabrile.com" },
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
-  const profileData = profile.ok ? await profile.json() as { nombre?: string } : {};
-  return { cookie: authenticatedCookie, socioId, username: username.trim(), name: profileData.nombre?.trim() || username.trim() };
+  const familySection = landingHtml.match(/GRUPO FAMILIAR[\s\S]*?PERFIL CLUB/i)?.[0] || landingHtml;
+  const memberIds = [...new Set([...familySection.matchAll(/\/carnet\/([0-9a-f-]{36})\//ig)].map((match) => match[1]))];
+  const members = await loadMemberProfiles(authenticatedCookie, memberIds.length ? memberIds : [socioId]);
+  const selected = members.find((member) => member.socioId === socioId) || members[0];
+  return { cookie: authenticatedCookie, socioId: selected.socioId, username: username.trim(), name: selected.name, members };
+}
+
+async function loadMemberProfiles(cookie: string, ids: string[]): Promise<BrioMember[]> {
+  return Promise.all(ids.map(async (id) => {
+    const profile = await fetch(new URL(`/turno/admin/socio/${id}/`, BRIO_BASE_URL), {
+      headers: { Accept: "application/json", Cookie: cookie, "User-Agent": "tenis.santivillabrile.com" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    const data = profile.ok ? await profile.json() as { nombre?: string } : {};
+    return { socioId: id, name: data.nombre?.trim() || "Socio" };
+  }));
 }
 
 async function getLegacySession() {
@@ -250,6 +260,13 @@ export async function cancelarReserva(auth: BrioAuth, reservaId: string) {
 export async function getSocioName(auth: BrioAuth) {
   const response = await brioJson<{ status: boolean; nombre?: string }>(auth, `/turno/admin/socio/${auth.socioId}/`);
   return response.status && response.nombre?.trim() ? response.nombre.trim() : auth.name;
+}
+
+export async function getFamilyMembers(auth: BrioAuth) {
+  const html = await brioText(auth, "/");
+  const familySection = html.match(/GRUPO FAMILIAR[\s\S]*?PERFIL CLUB/i)?.[0] || html;
+  const ids = [...new Set([...familySection.matchAll(/\/carnet\/([0-9a-f-]{36})\//ig)].map((match) => match[1]))];
+  return loadMemberProfiles(auth.cookie, ids.length ? ids : [auth.socioId]);
 }
 
 export async function getTurnos(fecha: string, userAuth?: BrioAuth): Promise<Turno[]> {

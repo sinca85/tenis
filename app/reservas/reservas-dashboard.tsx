@@ -5,8 +5,9 @@ import { Alert, App, Button, Empty, Modal, Skeleton, Tag } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { ConsultaCancelacion, ReservaUsuario } from "@/lib/types";
+import MemberMenu, { type MemberOption } from "@/app/member-menu";
 
-export default function ReservasDashboard({ name }: { name: string }) {
+export default function ReservasDashboard({ currentMemberId, members }: { currentMemberId: string; members: MemberOption[] }) {
   const { message } = App.useApp();
   const [reservas, setReservas] = useState<ReservaUsuario[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +66,7 @@ export default function ReservasDashboard({ name }: { name: string }) {
     <main className="dashboard">
       <header className="topbar">
         <Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link>
-        <nav><Button href="/turnos" type="text" icon={<ArrowLeftOutlined />}>Disponibilidad</Button><span className="user-name">Hola, {name}</span><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
+        <nav><Button href="/turnos" type="text" icon={<ArrowLeftOutlined />}>Disponibilidad</Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
       </header>
       <section className="reservations-page">
         <div className="reservations-heading"><div><p className="eyebrow"><CalendarOutlined /> NEPTUNIA</p><h1>Mis reservas</h1><p className="muted">Tus próximos turnos y las personas que juegan con vos.</p></div><Button onClick={() => void load()} disabled={loading} icon={<ReloadOutlined spin={loading} />}>Actualizar</Button></div>
