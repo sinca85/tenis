@@ -247,6 +247,11 @@ export async function cancelarReserva(auth: BrioAuth, reservaId: string) {
   return { mensaje: plainText(response.data?.mensaje) || "Turno cancelado", detalle: plainText(response.data?.mensaje1) };
 }
 
+export async function getSocioName(auth: BrioAuth) {
+  const response = await brioJson<{ status: boolean; nombre?: string }>(auth, `/turno/admin/socio/${auth.socioId}/`);
+  return response.status && response.nombre?.trim() ? response.nombre.trim() : auth.name;
+}
+
 export async function getTurnos(fecha: string, userAuth?: BrioAuth): Promise<Turno[]> {
   if (!DATE_PATTERN.test(fecha)) throw new Error("Fecha inválida");
 
