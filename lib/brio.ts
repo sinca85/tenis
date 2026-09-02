@@ -223,7 +223,7 @@ export async function getReservas(auth: BrioAuth): Promise<ReservaUsuario[]> {
       socios?: Array<{ apellidonombre?: string }>;
     }>(auth, `/turno/socio/${id}/`);
     if (!response.status || !response.data) throw new Error("Una reserva ya no está disponible");
-    return {
+    const reservation: ReservaUsuario = {
       id,
       turnoId: response.data.id || "",
       nombre: response.data.nombre || "Turno de tenis",
@@ -233,6 +233,12 @@ export async function getReservas(auth: BrioAuth): Promise<ReservaUsuario[]> {
       locked: Boolean(response.data.locked),
       socios: (response.socios || []).map((socio) => socio.apellidonombre || "Socio").filter(Boolean),
     };
+    // El endpoint usado por verReserva bloquea el turno durante 120 segundos.
+    // Como aquí solo leemos el detalle, replicamos el cierre del modal oficial y lo liberamos enseguida.
+    if (!reservation.locked && validId(reservation.turnoId)) {
+      try { await cancelarPreReserva(auth, reservation.turnoId); } catch { /* El bloqueo también vence automáticamente. */ }
+    }
+    return reservation;
   }));
 }
 
