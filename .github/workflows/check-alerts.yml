@@ -1,8 +1,6 @@
 name: Check tennis availability alerts
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
