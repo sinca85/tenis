@@ -8,26 +8,32 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const alerts = await listAlerts();
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba" }).format(new Date());
-  const active = alerts.filter((alert) => alert.fecha >= today);
-  const expired = alerts.filter((alert) => alert.fecha < today);
-  await Promise.all(expired.map((alert) => deleteAlert(alert.id)));
+  try {
+    const alerts = await listAlerts();
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba" }).format(new Date());
+    const active = alerts.filter((alert) => alert.fecha >= today);
+    const expired = alerts.filter((alert) => alert.fecha < today);
+    await Promise.all(expired.map((alert) => deleteAlert(alert.id)));
 
-  const dates = [...new Set(active.map((alert) => alert.fecha))];
-  const availability = new Map<string, Set<string>>();
-  await Promise.all(dates.map(async (fecha) => {
-    const turnos = await getTurnos(fecha);
-    availability.set(fecha, new Set(turnos.map((turno) => `${turno.servicio_id}:${turno.hora}`)));
-  }));
+    const dates = [...new Set(active.map((alert) => alert.fecha))];
+    const availability = new Map<string, Set<string>>();
+    await Promise.all(dates.map(async (fecha) => {
+      const turnos = await getTurnos(fecha);
+      availability.set(fecha, new Set(turnos.map((turno) => `${turno.servicio_id}:${turno.hora}`)));
+    }));
 
-  let sent = 0;
-  for (const alert of active) {
-    if (!availability.get(alert.fecha)?.has(`${alert.servicio_id}:${alert.hora}`)) continue;
-    await sendAvailabilityEmail(alert);
-    await deleteAlert(alert.id);
-    sent += 1;
+    let sent = 0;
+    for (const alert of active) {
+      if (!availability.get(alert.fecha)?.has(`${alert.servicio_id}:${alert.hora}`)) continue;
+      await sendAvailabilityEmail(alert);
+      await deleteAlert(alert.id);
+      sent += 1;
+    }
+
+    return Response.json({ status: true, checked: active.length, sent, expired: expired.length });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Error inesperado";
+    console.error("[cron/alertas] failed", { detail });
+    return Response.json({ status: false, error: detail }, { status: 500 });
   }
-
-  return Response.json({ status: true, checked: active.length, sent, expired: expired.length });
 }

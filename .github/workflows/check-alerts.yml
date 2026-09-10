@@ -10,7 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check Brio availability
-        run: >-
-          curl --fail --silent --show-error
-          --header "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
-          https://tenis.santivillaabrille.com/api/cron/alertas
+        run: |
+          status="$(curl --silent --show-error --output response.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://tenis.santivillaabrille.com/api/cron/alertas)"
+          cat response.json
+          test "$status" -ge 200 && test "$status" -lt 300
