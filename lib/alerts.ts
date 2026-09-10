@@ -4,8 +4,10 @@ import type { AlertaTurno } from "@/lib/types";
 const ALERTS_KEY = "tenis:alertas";
 
 function redisConfig() {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // La integración actual de Vercel expone KV_*. Conservamos los nombres
+  // UPSTASH_* como compatibilidad para instalaciones anteriores.
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error("Las alertas todavía no tienen almacenamiento configurado");
   return { url, token };
 }

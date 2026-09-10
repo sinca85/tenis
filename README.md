@@ -30,7 +30,7 @@ El servidor abre el formulario de Brio, toma un token CSRF fresco e inicia sesi�
 
 ## Activar alertas
 
-1. Instalar Upstash Redis desde Vercel Marketplace y conectar el proyecto para obtener `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN`.
+1. Instalar Upstash for Redis desde Vercel Marketplace y conectar el proyecto. Crea `KV_REST_API_URL` y `KV_REST_API_TOKEN` automáticamente.
 2. Instalar Resend, verificar el dominio remitente y configurar `RESEND_API_KEY` y `RESEND_EMAIL_DOMAIN`.
 3. Crear el mismo secreto aleatorio `CRON_SECRET` en Vercel Production y en GitHub Actions (`Settings → Secrets and variables → Actions`).
 4. Hacer un nuevo deployment. El workflow `.github/workflows/check-alerts.yml` revisa las bajas cada cinco minutos.
