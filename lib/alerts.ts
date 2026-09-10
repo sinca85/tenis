@@ -64,7 +64,7 @@ export async function sendAvailabilityEmail(alert: AlertaTurno) {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `Tenis Santivillabrile <alertas@${emailDomain}>`,
+      from: `Tenis Santivillaabrille <alertas@${emailDomain}>`,
       to: [alert.email],
       subject: `Se liberó ${alert.servicioNombre} a las ${alert.hora.slice(0, 5)}`,
       html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#342218"><div style="font-size:28px;font-weight:800;margin-bottom:24px">🎾 TENIS</div><h1 style="font-size:30px;line-height:1.1">¡Se liberó el turno que esperabas!</h1><p style="font-size:17px;line-height:1.6">Ya está disponible <strong>${alert.servicioNombre}</strong> el <strong>${alert.fecha}</strong> de <strong>${alert.hora.slice(0, 5)} a ${alert.horafin.slice(0, 5)}</strong>.</p><a href="https://neptunia.brio.club/" style="display:inline-block;margin-top:18px;padding:14px 22px;border-radius:999px;background:#f45b14;color:white;text-decoration:none;font-weight:700">Reservar ahora</a><p style="margin-top:30px;color:#796a61;font-size:13px">Este aviso se envía una sola vez.</p></div>`,
