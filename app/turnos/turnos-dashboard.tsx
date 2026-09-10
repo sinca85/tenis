@@ -26,6 +26,12 @@ function duration(turno: TurnoAgenda) {
   return endHour * 60 + endMinute - startHour * 60 - startMinute;
 }
 
+const ALERTS_STORAGE_KEY = "tenis:slot-alerts:v1";
+
+function alertKey(turno: Pick<TurnoAgenda, "fecha" | "hora" | "servicio_id">) {
+  return `${turno.fecha}|${turno.hora}|${turno.servicio_id}`;
+}
+
 export default function TurnosDashboard({ currentMemberId, members }: { currentMemberId: string; members: MemberOption[] }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<{ email: string }>();
@@ -36,6 +42,7 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
   const [updated, setUpdated] = useState<Date | null>(null);
   const [selected, setSelected] = useState<TurnoAgenda | null>(null);
   const [savingAlert, setSavingAlert] = useState(false);
+  const [alertEmails, setAlertEmails] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
   const [reserveTurno, setReserveTurno] = useState<TurnoAgenda | null>(null);
   const [reserveInfo, setReserveInfo] = useState<ConsultaReserva | null>(null);
@@ -64,6 +71,16 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(ALERTS_STORAGE_KEY) || "{}") as Record<string, string>;
+      setAlertEmails(saved);
+    } catch { window.localStorage.removeItem(ALERTS_STORAGE_KEY); }
+  }, []);
+  const updateAlertEmails = useCallback((next: Record<string, string>) => {
+    setAlertEmails(next);
+    window.localStorage.setItem(ALERTS_STORAGE_KEY, JSON.stringify(next));
+  }, []);
   const courts = useMemo(() => new Set(turnos.map((turno) => turno.servicio_id)).size, [turnos]);
   const availableCount = useMemo(() => turnos.filter((turno) => turno.disponible).length, [turnos]);
   const visibleTurnos = useMemo(
@@ -106,9 +123,13 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
       { title: <><span className="desktop-only">CANCHA</span><span className="mobile-only">C.</span></>, key: "cancha", className: "slot-court-column", render: (_, turno) => <><span className="desktop-only">{turno.servicioNombre}</span><span className="mobile-only court-short">C{turno.servicioNombre.match(/\d+/)?.[0]?.replace(/^0/, "")}</span></> },
       { title: "DURACIÓN", key: "duracion", responsive: ["md"], render: (_, turno) => `${duration(turno)} min` },
       { title: <span className="desktop-only">ESTADO</span>, key: "estado", className: "slot-status-column", render: (_, turno) => <><span className={`status-dot mobile-only ${turno.disponible ? "available" : "occupied"}`} title={turno.disponible ? "Disponible" : "Reservado"} aria-label={turno.disponible ? "Disponible" : "Reservado"} /><span className="desktop-only">{turno.disponible ? <Tag color="success">Disponible</Tag> : <Tag>Ocupado</Tag>}</span></> },
-      { title: "", key: "action", className: "slot-action-column", align: "right", render: (_, turno) => turno.disponible ? <Button className="slot-action" type="primary" shape="round" onClick={() => void openReserve(turno)}>Reservar</Button> : <Button className="slot-action" shape="round" icon={<BellOutlined />} aria-label="Notificar baja" onClick={() => openAlert(turno)}><span className="desktop-only">Notificar baja</span><span className="mobile-only">Avisar</span></Button> },
+      { title: "", key: "action", className: "slot-action-column", align: "right", render: (_, turno) => {
+        if (turno.disponible) return <Button className="slot-action" type="primary" shape="round" onClick={() => void openReserve(turno)}>Reservar</Button>;
+        const active = Boolean(alertEmails[alertKey(turno)]);
+        return <Button className="slot-action" type={active ? "primary" : "default"} shape="round" icon={<BellOutlined />} aria-label={active ? "Notificación activa" : "Notificar baja"} onClick={() => openAlert(turno)}><span className="desktop-only">{active ? "Notificación activa" : "Notificar baja"}</span><span className="mobile-only">{active ? "Activa" : "Avisar"}</span></Button>;
+      } },
     ],
-    [openAlert, openReserve],
+    [alertEmails, openAlert, openReserve],
   );
 
   useEffect(() => {
@@ -191,6 +212,7 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "No se pudo crear la alerta");
+      updateAlertEmails({ ...alertEmails, [alertKey(selected)]: email.trim().toLowerCase() });
       setSelected(null);
       message.success("Alerta creada. Te avisaremos si se libera el turno.");
     } catch (cause) {
@@ -198,6 +220,29 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     } finally {
       setSavingAlert(false);
     }
+  };
+
+  const cancelAlert = async () => {
+    if (!selected) return;
+    const key = alertKey(selected);
+    const email = alertEmails[key];
+    if (!email) return;
+    setSavingAlert(true);
+    try {
+      const response = await fetch("/api/alertas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, fecha: selected.fecha, hora: selected.hora, servicio_id: selected.servicio_id }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "No se pudo cancelar la alerta");
+      const { [key]: _, ...remaining } = alertEmails;
+      updateAlertEmails(remaining);
+      setSelected(null);
+      message.success("Notificación cancelada");
+    } catch (cause) {
+      message.error(cause instanceof Error ? cause.message : "No se pudo cancelar la alerta");
+    } finally { setSavingAlert(false); }
   };
 
   return (
@@ -220,15 +265,15 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
         </div>
         {error ? <Alert className="results-state" message="No pudimos consultar Brio" description={error} type="error" showIcon action={<Button onClick={() => void load()}>Reintentar</Button>} /> : loading ? <div className="results-state"><Skeleton active paragraph={{ rows: 4 }} /></div> : visibleTurnos.length === 0 ? <div className="results-state"><Empty description={showAll ? "No hay turnos futuros para esta fecha" : "No hay turnos disponibles para esta fecha"} /></div> : <Table className="slots-table" columns={columns} dataSource={visibleTurnos} rowKey="id" rowClassName={(turno) => turno.disponible && turno.servicio_id === 16 ? "court-three-available" : ""} pagination={false} tableLayout="fixed" />}
       </section>
-      <Modal title="Avisarme si se libera" open={Boolean(selected)} onCancel={() => setSelected(null)} footer={null} destroyOnHidden>
+      <Modal title={selected && alertEmails[alertKey(selected)] ? "Notificación activa" : "Avisarme si se libera"} open={Boolean(selected)} onCancel={() => setSelected(null)} footer={null} destroyOnHidden>
         {selected ? <p className="alert-slot"><strong>{selected.servicioNombre}</strong><span>{prettyDate(selected.fecha)} · {selected.hora.slice(0, 5)} a {selected.horafin.slice(0, 5)}</span></p> : null}
-        <Form form={form} layout="vertical" onFinish={createAlert} requiredMark={false}>
+        {selected && alertEmails[alertKey(selected)] ? <><p className="alert-note">Te avisaremos a <strong>{alertEmails[alertKey(selected)]}</strong> cuando este turno se libere.</p><Button danger type="primary" loading={savingAlert} onClick={() => void cancelAlert()} block>Cancelar notificación</Button></> : <Form form={form} layout="vertical" onFinish={createAlert} requiredMark={false}>
           <Form.Item label="Email para el aviso" name="email" rules={[{ required: true, message: "Ingresá tu email" }, { type: "email", message: "Ingresá un email válido" }]}>
             <Input type="email" placeholder="vos@ejemplo.com" autoComplete="email" prefix={<BellOutlined />} />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={savingAlert} block>Crear alerta</Button>
-        </Form>
-        <p className="alert-note">Lo verificamos periódicamente y enviamos un único email cuando Brio vuelve a mostrarlo disponible.</p>
+        </Form>}
+        {!selected || !alertEmails[alertKey(selected)] ? <p className="alert-note">Lo verificamos periódicamente y enviamos un único email cuando Brio vuelve a mostrarlo disponible.</p> : null}
       </Modal>
       <Modal
         title={preReserve ? "Elegí a tu compañero" : "Confirmar turno"}
