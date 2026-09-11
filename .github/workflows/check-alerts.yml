@@ -1,9 +1,6 @@
 name: Check tennis availability alerts
 
 on:
-  schedule:
-    # GitHub Actions usa UTC. Argentina (UTC-3): 07:00–22:55.
-    - cron: "*/5 0-1,10-23 * * *"
   workflow_dispatch:
 
 jobs:
