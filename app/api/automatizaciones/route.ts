@@ -30,7 +30,9 @@ export async function GET(request: Request) {
   const search = new URL(request.url).searchParams.get("search")?.trim();
   try {
     if (search) {
-      for (let offset = 0; offset < 8; offset += 1) {
+      // Solo necesitamos un turno real como contexto para el buscador de Brio.
+      // Consultar una semana completa por cada tecla saturaba el endpoint externo.
+      for (let offset = 1; offset <= 2; offset += 1) {
         const turnos = await getTurnos(dateOffset(offset), brio);
         if (turnos[0]) return Response.json({ status: true, data: await buscarColegas(brio, turnos[0].id, search) });
       }

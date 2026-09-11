@@ -5,11 +5,11 @@ import { BRIO_SESSION_COOKIE, verifyBrioSession } from "@/lib/brio-session";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 import BrioLoginForm from "./brio-login-form";
 
-export default async function BrioLoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function BrioLoginPage({ searchParams }: { searchParams: Promise<{ error?: string; automationError?: string }> }) {
   const cookieStore = await cookies();
   if (!verifySession(cookieStore.get(SESSION_COOKIE)?.value)) redirect("/login");
   if (verifyBrioSession(cookieStore.get(BRIO_SESSION_COOKIE)?.value)) redirect("/turnos");
-  const { error } = await searchParams;
+  const { error, automationError } = await searchParams;
 
   return (
     <main className="login-shell">
@@ -18,7 +18,7 @@ export default async function BrioLoginPage({ searchParams }: { searchParams: Pr
         <p className="eyebrow">CONECTAR CON EL CLUB</p>
         <h1>Entrá con tu cuenta<br />de Neptunia.</h1>
         <p className="muted">Usamos esta sesión para mostrar tus turnos y reservar siempre con tu propio socio.</p>
-        <BrioLoginForm hasError={Boolean(error)} />
+        <BrioLoginForm hasError={Boolean(error)} hasAutomationError={Boolean(automationError)} />
         <p className="tiny">La contraseña no se guarda, salvo que elijas habilitar reservas automáticas. En ese caso queda cifrada para ejecutar tus reglas.</p>
       </section>
       <aside className="login-visual" aria-hidden="true"><div className="tennis-ball giant" /><div className="visual-copy">ELEGÍ.<br />RESERVÁ.<br />JUGÁ.</div></aside>

@@ -3,7 +3,7 @@
 import { CalendarOutlined, DeleteOutlined, PlusOutlined, RobotOutlined, SearchOutlined } from "@ant-design/icons";
 import { App, AutoComplete, Button, Card, Checkbox, Empty, Form, Modal, Select, Skeleton, Tag } from "antd";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AutomationRule } from "@/lib/automations";
 
 const horarios = ["08:00", "09:15", "10:30", "11:45", "13:00", "14:15", "15:30", "16:45", "18:00", "19:15", "20:30", "21:45"];
@@ -20,6 +20,7 @@ export default function AutomationsPage() {
   const [saving, setSaving] = useState(false);
   const [credentialsEnabled, setCredentialsEnabled] = useState(false);
   const [colleagues, setColleagues] = useState<Array<{ value: string; label: string }>>([]);
+  const colleagueSearchTimer = useRef<number | undefined>(undefined);
 
   const load = async () => {
     setLoading(true);
@@ -36,12 +37,21 @@ export default function AutomationsPage() {
     return () => window.clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const searchColleague = async (query: string) => {
+  useEffect(() => () => {
+    if (colleagueSearchTimer.current) window.clearTimeout(colleagueSearchTimer.current);
+  }, []);
+
+  const searchColleague = (query: string) => {
+    if (colleagueSearchTimer.current) window.clearTimeout(colleagueSearchTimer.current);
     if (query.trim().length < 3) { setColleagues([]); return; }
-    const response = await fetch(`/api/automatizaciones?search=${encodeURIComponent(query)}`, { cache: "no-store" });
-    const json = await response.json();
-    if (!response.ok) { message.error(json.error || "No se pudo buscar el compañero"); return; }
-    setColleagues((json.data || []).map((person: { socioid: string; apellidonombre: string }) => ({ value: person.socioid, label: person.apellidonombre })));
+    colleagueSearchTimer.current = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/automatizaciones?search=${encodeURIComponent(query)}`, { cache: "no-store" });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.error || "No se pudo buscar el compañero");
+        setColleagues((json.data || []).map((person: { socioid: string; apellidonombre: string }) => ({ value: person.socioid, label: person.apellidonombre })));
+      } catch (error) { message.error(error instanceof Error ? error.message : "No se pudo buscar el compañero"); }
+    }, 550);
   };
   const save = async (values: { hora: string; servicioId: number; colegaId: string; diasJuego: number[]; diasEjecucion: number[] }) => {
     setSaving(true);
@@ -73,7 +83,7 @@ export default function AutomationsPage() {
       <Form form={form} layout="vertical" onFinish={save} initialValues={{ diasEjecucion: [1, 2, 3, 4], diasJuego: [2, 4] }}>
         <Form.Item label="Horario" name="hora" rules={[{ required: true }]}><Select options={horarios.map((value) => ({ value, label: value }))} /></Form.Item>
         <Form.Item label="Cancha" name="servicioId" rules={[{ required: true }]}><Select options={canchas} /></Form.Item>
-        <Form.Item label="Compañero" name="colegaId" rules={[{ required: true, message: "Buscá y elegí un compañero" }]}><AutoComplete options={colleagues} onSearch={(query) => void searchColleague(query)} placeholder="Buscá por nombre (ej. Diego)" prefix={<SearchOutlined />} /></Form.Item>
+        <Form.Item label="Compañero" name="colegaId" rules={[{ required: true, message: "Buscá y elegí un compañero" }]}><AutoComplete options={colleagues} onSearch={searchColleague} placeholder="Buscá por nombre (ej. Diego)" prefix={<SearchOutlined />} /></Form.Item>
         <Form.Item label="Días que quiero jugar" name="diasJuego" rules={[{ required: true }]}><Checkbox.Group options={dias} /></Form.Item>
         <Form.Item label="Días en que puede reservar" name="diasEjecucion" rules={[{ required: true }]}><Checkbox.Group options={dias} /></Form.Item>
         <Button type="primary" htmlType="submit" loading={saving} block>Crear automatización</Button>
