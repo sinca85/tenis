@@ -24,6 +24,18 @@ function weekdays(value: unknown) {
   return [...new Set(value.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
 }
 
+function ruleValues(body: Partial<AutomationRule>) {
+  const hora = String(body.hora || "");
+  const servicioId = Number(body.servicioId);
+  const optionalServiceId = body.servicioId2 as unknown;
+  const servicioId2 = optionalServiceId === undefined || optionalServiceId === null || optionalServiceId === "" ? undefined : Number(optionalServiceId);
+  const colegaId = String(body.colegaId || "");
+  const diasJuego = weekdays(body.diasJuego);
+  const diasEjecucion = weekdays(body.diasEjecucion);
+  if (!HORARIOS.includes(hora) || ![14, 15, 16, 17].includes(servicioId) || (servicioId2 !== undefined && (![14, 15, 16, 17].includes(servicioId2) || servicioId2 === servicioId)) || !/^[0-9a-f-]{36}$/i.test(colegaId) || !diasJuego.length || !diasEjecucion.length) throw new Error("Completá horario, cancha, compañero y días");
+  return { hora, servicioId, servicioId2, colegaId, diasJuego, diasEjecucion };
+}
+
 export async function GET(request: Request) {
   const brio = await authorized();
   if (!brio) return Response.json({ status: false, error: "Iniciá sesión en Neptunia" }, { status: 401 });
@@ -51,21 +63,27 @@ export async function POST(request: Request) {
     const body = await request.json() as Partial<AutomationRule>;
     const ownerId = automationOwnerId(brio.username);
     if (!await getAutomationCredentials(ownerId)) return Response.json({ status: false, error: "Para automatizar, cerrá sesión e ingresá de nuevo marcando “Habilitar reservas automáticas”." }, { status: 409 });
-    const hora = String(body.hora || "");
-    const servicioId = Number(body.servicioId);
-    const optionalServiceId = body.servicioId2 as unknown;
-    const servicioId2 = optionalServiceId === undefined || optionalServiceId === null || optionalServiceId === "" ? undefined : Number(optionalServiceId);
-    const colegaId = String(body.colegaId || "");
-    const diasJuego = weekdays(body.diasJuego);
-    const diasEjecucion = weekdays(body.diasEjecucion);
-    if (!HORARIOS.includes(hora) || ![14, 15, 16, 17].includes(servicioId) || (servicioId2 !== undefined && (![14, 15, 16, 17].includes(servicioId2) || servicioId2 === servicioId)) || !/^[0-9a-f-]{36}$/i.test(colegaId) || !diasJuego.length || !diasEjecucion.length) {
-      return Response.json({ status: false, error: "Completá horario, cancha, compañero y días" }, { status: 400 });
-    }
-    const rule: AutomationRule = { id: randomUUID(), ownerId, memberId: brio.socioId, hora, servicioId, servicioId2, colegaId, colegaNombre: String(body.colegaNombre || "Compañero"), diasJuego, diasEjecucion, activo: true, createdAt: new Date().toISOString() };
+    const rule: AutomationRule = { id: randomUUID(), ownerId, memberId: brio.socioId, ...ruleValues(body), colegaNombre: String(body.colegaNombre || "Compañero"), activo: true, createdAt: new Date().toISOString() };
     await saveAutomationRule(rule);
     return Response.json({ status: true, data: rule });
   } catch (error) {
     return Response.json({ status: false, error: error instanceof Error ? error.message : "No se pudo guardar la regla" }, { status: 503 });
+  }
+}
+
+export async function PUT(request: Request) {
+  const brio = await authorized();
+  if (!brio) return Response.json({ status: false, error: "Iniciá sesión en Neptunia" }, { status: 401 });
+  try {
+    const body = await request.json() as Partial<AutomationRule>;
+    const ownerId = automationOwnerId(brio.username);
+    const existing = (await listAutomationRules(ownerId)).find((rule) => rule.id === String(body.id || ""));
+    if (!existing) return Response.json({ status: false, error: "Automatización no encontrada" }, { status: 404 });
+    const rule: AutomationRule = { ...existing, ...ruleValues(body), colegaNombre: String(body.colegaNombre || existing.colegaNombre) };
+    await saveAutomationRule(rule);
+    return Response.json({ status: true, data: rule });
+  } catch (error) {
+    return Response.json({ status: false, error: error instanceof Error ? error.message : "No se pudo editar la regla" }, { status: 400 });
   }
 }
 
