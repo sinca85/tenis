@@ -1,6 +1,6 @@
 "use client";
 
-import { BellOutlined, CalendarOutlined, ClockCircleOutlined, LogoutOutlined, ReloadOutlined } from "@ant-design/icons";
+import { BellOutlined, CalendarOutlined, ClockCircleOutlined, LogoutOutlined, ReloadOutlined, RobotOutlined } from "@ant-design/icons";
 import { Alert, App, Button, DatePicker, Empty, Form, Input, Modal, Select, Skeleton, Switch, Table, Tag } from "antd";
 import type { TableColumnsType } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
@@ -72,10 +72,13 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     void load();
   }, [load]);
   useEffect(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(ALERTS_STORAGE_KEY) || "{}") as Record<string, string>;
-      setAlertEmails(saved);
-    } catch { window.localStorage.removeItem(ALERTS_STORAGE_KEY); }
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(ALERTS_STORAGE_KEY) || "{}") as Record<string, string>;
+        setAlertEmails(saved);
+      } catch { window.localStorage.removeItem(ALERTS_STORAGE_KEY); }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
   const updateAlertEmails = useCallback((next: Record<string, string>) => {
     setAlertEmails(next);
@@ -236,7 +239,8 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "No se pudo cancelar la alerta");
-      const { [key]: _, ...remaining } = alertEmails;
+      const remaining = { ...alertEmails };
+      delete remaining[key];
       updateAlertEmails(remaining);
       setSelected(null);
       message.success("Notificación cancelada");
@@ -249,7 +253,7 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     <main className="dashboard">
       <header className="topbar">
         <Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link>
-        <nav><Button href="/reservas" type="text" icon={<CalendarOutlined />}>Mis reservas</Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
+        <nav><Button href="/reservas" type="text" icon={<CalendarOutlined />}>Mis reservas</Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}>Automatizar</Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
       </header>
       <section className="hero">
         <div><p className="eyebrow">NEPTUNIA · DISPONIBILIDAD EN VIVO</p><p className="hero-copy">Elegí el día, encontrá tu horario y seguí jugando.</p></div>

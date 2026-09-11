@@ -1,5 +1,6 @@
 import { deleteAlert, listAlerts, sendAvailabilityEmail } from "@/lib/alerts";
 import { getTurnos } from "@/lib/brio";
+import { runAutomations } from "@/lib/automation-runner";
 
 export const maxDuration = 60;
 
@@ -9,6 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    const automations = await runAutomations();
     const alerts = await listAlerts();
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba" }).format(new Date());
     const active = alerts.filter((alert) => alert.fecha >= today);
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
       sent += 1;
     }
 
-    return Response.json({ status: true, checked: active.length, sent, expired: expired.length });
+    return Response.json({ status: true, checked: active.length, sent, expired: expired.length, automations });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Error inesperado";
     console.error("[cron/alertas] failed", { detail });

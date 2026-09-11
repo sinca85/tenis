@@ -19,7 +19,7 @@ export default async function BrioLoginPage({ searchParams }: { searchParams: Pr
         <h1>Entrá con tu cuenta<br />de Neptunia.</h1>
         <p className="muted">Usamos esta sesión para mostrar tus turnos y reservar siempre con tu propio socio.</p>
         <BrioLoginForm hasError={Boolean(error)} />
-        <p className="tiny">Tu contraseña no se guarda · La sesión permanece cifrada</p>
+        <p className="tiny">La contraseña no se guarda, salvo que elijas habilitar reservas automáticas. En ese caso queda cifrada para ejecutar tus reglas.</p>
       </section>
       <aside className="login-visual" aria-hidden="true"><div className="tennis-ball giant" /><div className="visual-copy">ELEGÍ.<br />RESERVÁ.<br />JUGÁ.</div></aside>
     </main>
