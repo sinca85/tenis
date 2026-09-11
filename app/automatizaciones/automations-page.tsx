@@ -1,17 +1,18 @@
 "use client";
 
-import { CalendarOutlined, DeleteOutlined, PlusOutlined, RobotOutlined, SearchOutlined } from "@ant-design/icons";
+import { CalendarOutlined, DeleteOutlined, LogoutOutlined, PlusOutlined, RobotOutlined, SearchOutlined } from "@ant-design/icons";
 import { App, AutoComplete, Button, Card, Checkbox, Empty, Form, Modal, Select, Skeleton, Tag } from "antd";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { AutomationRule } from "@/lib/automations";
+import MemberMenu, { type MemberOption } from "@/app/member-menu";
 
 const horarios = ["08:00", "09:15", "10:30", "11:45", "13:00", "14:15", "15:30", "16:45", "18:00", "19:15", "20:30", "21:45"];
 const canchas = [{ value: 14, label: "Cancha 1" }, { value: 15, label: "Cancha 2" }, { value: 16, label: "Cancha 3" }, { value: 17, label: "Cancha 4" }];
 const dias = [{ value: 1, label: "Lunes" }, { value: 2, label: "Martes" }, { value: 3, label: "Miércoles" }, { value: 4, label: "Jueves" }, { value: 5, label: "Viernes" }, { value: 6, label: "Sábado" }, { value: 0, label: "Domingo" }];
 const dia = (value: number) => dias.find((item) => item.value === value)?.label || "";
 
-export default function AutomationsPage() {
+export default function AutomationsPage({ currentMemberId, members }: { currentMemberId: string; members: MemberOption[] }) {
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [rules, setRules] = useState<AutomationRule[]>([]);
@@ -72,7 +73,7 @@ export default function AutomationsPage() {
   };
 
   return <main className="dashboard">
-    <header className="topbar"><Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link><nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button></nav></header>
+    <header className="topbar"><Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link><nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}><span className="desktop-only">Salir</span></Button></form></nav></header>
     <section className="reservations-page automations-page">
       <div className="reservations-heading"><div><p className="eyebrow"><RobotOutlined /> RESERVAS AUTOMÁTICAS</p><h1>Jugá sin acordarte<br />de reservar.</h1><p className="muted">Creamos el próximo turno cuando Brio permita hacerlo, siempre respetando el límite de dos reservas.</p></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Agregar reserva automática</Button></div>
       {!credentialsEnabled ? <Card className="automation-warning"><strong>Falta habilitar esta cuenta</strong><p>Para ejecutar reservas en segundo plano, cerrá sesión y volvé a entrar a Neptunia marcando “Habilitar reservas automáticas con esta cuenta”.</p></Card> : null}
