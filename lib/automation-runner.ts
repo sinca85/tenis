@@ -55,13 +55,15 @@ export async function runAutomations() {
       let cupo = Math.max(0, 2 - (await getReservas(auth)).length);
       for (const { rule, fecha } of group.sort((a, b) => `${a.fecha}T${a.rule.hora}`.localeCompare(`${b.fecha}T${b.rule.hora}`))) {
         if (!cupo) { results.push({ id: rule.id, status: "skipped", detail: "Ya tiene dos turnos activos" }); continue; }
-        const turno = (await getAgenda(fecha, auth)).find((item) => item.disponible && item.hora === rule.hora && item.servicio_id === rule.servicioId);
+        const agenda = await getAgenda(fecha, auth);
+        const prioridades = [rule.servicioId, rule.servicioId2].filter((cancha): cancha is number => typeof cancha === "number");
+        const turno = prioridades.map((cancha) => agenda.find((item) => item.disponible && item.hora === rule.hora && item.servicio_id === cancha)).find(Boolean);
         if (!turno) { results.push({ id: rule.id, status: "skipped", detail: "El próximo turno todavía no está disponible" }); continue; }
         await consultarReserva(auth, turno.id);
         await iniciarPreReserva(auth, turno.id);
         await confirmarReserva(auth, turno.id, rule.colegaId);
         cupo -= 1;
-        results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora}` });
+        results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora} · ${turno.servicioNombre}` });
       }
     } catch (error) {
       group.forEach(({ rule }) => results.push({ id: rule.id, status: "error", detail: error instanceof Error ? error.message : "Error inesperado" }));

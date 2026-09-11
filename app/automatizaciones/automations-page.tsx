@@ -54,7 +54,7 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
       } catch (error) { message.error(error instanceof Error ? error.message : "No se pudo buscar el compañero"); }
     }, 550);
   };
-  const save = async (values: { hora: string; servicioId: number; colegaId: string; diasJuego: number[]; diasEjecucion: number[] }) => {
+  const save = async (values: { hora: string; servicioId: number; servicioId2?: number; colegaId: string; diasJuego: number[]; diasEjecucion: number[] }) => {
     setSaving(true);
     try {
       const colleague = colleagues.find((item) => item.value === values.colegaId);
@@ -77,13 +77,14 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
     <section className="reservations-page automations-page">
       <div className="reservations-heading"><div><p className="eyebrow"><RobotOutlined /> RESERVAS AUTOMÁTICAS</p><h1>Jugá sin acordarte<br />de reservar.</h1><p className="muted">Creamos el próximo turno cuando Brio permita hacerlo, siempre respetando el límite de dos reservas.</p></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Agregar reserva automática</Button></div>
       {!credentialsEnabled ? <Card className="automation-warning"><strong>Falta habilitar esta cuenta</strong><p>Para ejecutar reservas en segundo plano, cerrá sesión y volvé a entrar a Neptunia marcando “Habilitar reservas automáticas con esta cuenta”.</p></Card> : null}
-      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => <Card key={rule.id} className="automation-card" actions={[<Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color="orange">Activa</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p></Card>)}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
+      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => <Card key={rule.id} className="automation-card" actions={[<Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color="orange">Activa</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p></Card>)}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
     </section>
     <Modal title="Agregar reserva automática" open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden>
       <p className="alert-note">El sistema busca el próximo día de juego, y reserva solo cuando el cron esté habilitado para ese día.</p>
       <Form form={form} layout="vertical" onFinish={save} initialValues={{ diasEjecucion: [1, 2, 3, 4], diasJuego: [2, 4] }}>
         <Form.Item label="Horario" name="hora" rules={[{ required: true }]}><Select options={horarios.map((value) => ({ value, label: value }))} /></Form.Item>
-        <Form.Item label="Cancha" name="servicioId" rules={[{ required: true }]}><Select options={canchas} /></Form.Item>
+        <Form.Item label="Cancha prioridad 1" name="servicioId" rules={[{ required: true }]}><Select options={canchas} /></Form.Item>
+        <Form.Item label="Cancha prioridad 2 (opcional)" name="servicioId2"><Select allowClear placeholder="Sin cancha alternativa" options={canchas} /></Form.Item>
         <Form.Item label="Compañero" name="colegaId" rules={[{ required: true, message: "Buscá y elegí un compañero" }]}><AutoComplete options={colleagues} onSearch={searchColleague} placeholder="Buscá por nombre (ej. Diego)" prefix={<SearchOutlined />} /></Form.Item>
         <Form.Item label="Días que quiero jugar" name="diasJuego" rules={[{ required: true }]}><Checkbox.Group options={dias} /></Form.Item>
         <Form.Item label="Días en que puede reservar" name="diasEjecucion" rules={[{ required: true }]}><Checkbox.Group options={dias} /></Form.Item>

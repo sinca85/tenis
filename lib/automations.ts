@@ -9,6 +9,7 @@ export type AutomationRule = {
   memberId: string;
   hora: string;
   servicioId: number;
+  servicioId2?: number;
   colegaId: string;
   colegaNombre: string;
   diasJuego: number[];
