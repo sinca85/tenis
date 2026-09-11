@@ -8,6 +8,7 @@ import type { AutomationRule } from "@/lib/automations";
 import MemberMenu, { type MemberOption } from "@/app/member-menu";
 
 const horarios = ["08:00", "09:15", "10:30", "11:45", "13:00", "14:15", "15:30", "16:45", "18:00", "19:15", "20:30", "21:45"];
+const horasCorte = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
 const canchas = [{ value: 14, label: "Cancha 1" }, { value: 15, label: "Cancha 2" }, { value: 16, label: "Cancha 3" }, { value: 17, label: "Cancha 4" }];
 const dias = [{ value: 1, label: "Lunes" }, { value: 2, label: "Martes" }, { value: 3, label: "Miércoles" }, { value: 4, label: "Jueves" }, { value: 5, label: "Viernes" }, { value: 6, label: "Sábado" }, { value: 0, label: "Domingo" }];
 const dia = (value: number) => dias.find((item) => item.value === value)?.label || "";
@@ -55,7 +56,7 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
       } catch (error) { message.error(error instanceof Error ? error.message : "No se pudo buscar el compañero"); }
     }, 550);
   };
-  const save = async (values: { hora: string; servicioId: number; servicioId2?: number; colegaId: string; diasJuego: number[]; diasEjecucion: number[] }) => {
+  const save = async (values: { hora: string; servicioId: number; servicioId2?: number; colegaId: string; diasJuego: number[]; diasEjecucion: number[]; diaCorte?: number; horaCorte?: string }) => {
     setSaving(true);
     try {
       const colleague = colleagues.find((item) => item.value === values.colegaId);
@@ -70,7 +71,7 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
   const startEdit = (rule: AutomationRule) => {
     setEditing(rule);
     setColleagues([{ value: rule.colegaId, label: rule.colegaNombre }]);
-    form.setFieldsValue({ hora: rule.hora.slice(0, 5), servicioId: rule.servicioId, servicioId2: rule.servicioId2, colegaId: rule.colegaId, diasJuego: rule.diasJuego, diasEjecucion: rule.diasEjecucion });
+    form.setFieldsValue({ hora: rule.hora.slice(0, 5), servicioId: rule.servicioId, servicioId2: rule.servicioId2, colegaId: rule.colegaId, diasJuego: rule.diasJuego, diasEjecucion: rule.diasEjecucion, diaCorte: rule.diaCorte, horaCorte: rule.horaCorte });
     setOpen(true);
   };
   const remove = async (id: string) => {
@@ -85,7 +86,7 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
     <section className="reservations-page automations-page">
       <div className="reservations-heading"><div><p className="eyebrow"><RobotOutlined /> RESERVAS AUTOMÁTICAS</p><h1>Jugá sin acordarte<br />de reservar.</h1><p className="muted">Creamos el próximo turno cuando Brio permita hacerlo, siempre respetando el límite de dos reservas.</p></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={startCreate}>Agregar reserva automática</Button></div>
       {!credentialsEnabled ? <Card className="automation-warning"><strong>Falta habilitar esta cuenta</strong><p>Para ejecutar reservas en segundo plano, cerrá sesión y volvé a entrar a Neptunia marcando “Habilitar reservas automáticas con esta cuenta”.</p></Card> : null}
-      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => <Card key={rule.id} className="automation-card" actions={[<Button key="edit" type="text" icon={<EditOutlined />} onClick={() => startEdit(rule)}>Editar</Button>, <Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color="orange">Activa</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p></Card>)}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
+      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => <Card key={rule.id} className="automation-card" actions={[<Button key="edit" type="text" icon={<EditOutlined />} onClick={() => startEdit(rule)}>Editar</Button>, <Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color="orange">Activa</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p>{rule.diaCorte !== undefined && rule.horaCorte ? <p><strong>Pausar desde:</strong> {dia(rule.diaCorte)} {rule.horaCorte}</p> : null}</Card>)}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
     </section>
     <Modal title={editing ? "Editar reserva automática" : "Agregar reserva automática"} open={open} onCancel={() => { setOpen(false); setEditing(null); }} footer={null} destroyOnHidden>
       <p className="alert-note">El sistema busca el próximo día de juego, y reserva solo cuando el cron esté habilitado para ese día.</p>
@@ -96,6 +97,7 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
         <Form.Item label="Compañero" name="colegaId" rules={[{ required: true, message: "Buscá y elegí un compañero" }]}><AutoComplete options={colleagues} onSearch={searchColleague} placeholder="Buscá por nombre (ej. Diego)" prefix={<SearchOutlined />} /></Form.Item>
         <Form.Item label="Días que quiero jugar" name="diasJuego" rules={[{ required: true }]}><Checkbox.Group options={dias} /></Form.Item>
         <Form.Item label="Días en que puede reservar" name="diasEjecucion" rules={[{ required: true }]}><Checkbox.Group options={dias} /></Form.Item>
+        <Form.Item label="Dejar de intentar desde (opcional)"><div className="automation-cutoff"><Form.Item name="diaCorte" noStyle><Select allowClear placeholder="Día" options={dias} /></Form.Item><Form.Item name="horaCorte" noStyle><Select allowClear placeholder="Hora" options={horasCorte.map((value) => ({ value, label: value }))} /></Form.Item></div></Form.Item>
         <Button type="primary" htmlType="submit" loading={saving} block>{editing ? "Guardar cambios" : "Crear automatización"}</Button>
       </Form>
     </Modal>

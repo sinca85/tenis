@@ -103,6 +103,7 @@ a { color: inherit; }
 .automation-card p { margin: 10px 0; color: var(--muted); font-size: 13px; }
 .automation-warning { margin-bottom: 25px; border-color: #ffd2b9; background: #fff6eb; }
 .automation-warning p { margin: 8px 0 0; color: var(--muted); }
+.automation-cutoff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 footer { padding: 0 24px 40px; color: #9c8c80; font-size: 12px; text-align: center; }
 
 @media (max-width: 900px) {

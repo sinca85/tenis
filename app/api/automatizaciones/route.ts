@@ -32,8 +32,12 @@ function ruleValues(body: Partial<AutomationRule>) {
   const colegaId = String(body.colegaId || "");
   const diasJuego = weekdays(body.diasJuego);
   const diasEjecucion = weekdays(body.diasEjecucion);
+  const optionalCutoffDay = body.diaCorte as unknown;
+  const diaCorte = optionalCutoffDay === undefined || optionalCutoffDay === null || optionalCutoffDay === "" ? undefined : Number(optionalCutoffDay);
+  const horaCorte = body.horaCorte ? String(body.horaCorte) : undefined;
   if (!HORARIOS.includes(hora) || ![14, 15, 16, 17].includes(servicioId) || (servicioId2 !== undefined && (![14, 15, 16, 17].includes(servicioId2) || servicioId2 === servicioId)) || !/^[0-9a-f-]{36}$/i.test(colegaId) || !diasJuego.length || !diasEjecucion.length) throw new Error("Completá horario, cancha, compañero y días");
-  return { hora, servicioId, servicioId2, colegaId, diasJuego, diasEjecucion };
+  if ((diaCorte === undefined) !== (horaCorte === undefined) || (diaCorte !== undefined && (!Number.isInteger(diaCorte) || diaCorte < 0 || diaCorte > 6 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(horaCorte || "")))) throw new Error("Configurá correctamente el día y horario de corte");
+  return { hora, servicioId, servicioId2, colegaId, diasJuego, diasEjecucion, diaCorte, horaCorte };
 }
 
 export async function GET(request: Request) {

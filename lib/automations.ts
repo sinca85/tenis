@@ -14,6 +14,8 @@ export type AutomationRule = {
   colegaNombre: string;
   diasJuego: number[];
   diasEjecucion: number[];
+  diaCorte?: number;
+  horaCorte?: string;
   activo: boolean;
   createdAt: string;
 };
