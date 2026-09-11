@@ -72,7 +72,7 @@ export default function AutomationsPage() {
   };
 
   return <main className="dashboard">
-    <header className="topbar"><Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link><nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}>Disponibilidad</Button></nav></header>
+    <header className="topbar"><Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link><nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button></nav></header>
     <section className="reservations-page automations-page">
       <div className="reservations-heading"><div><p className="eyebrow"><RobotOutlined /> RESERVAS AUTOMÁTICAS</p><h1>Jugá sin acordarte<br />de reservar.</h1><p className="muted">Creamos el próximo turno cuando Brio permita hacerlo, siempre respetando el límite de dos reservas.</p></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setOpen(true)}>Agregar reserva automática</Button></div>
       {!credentialsEnabled ? <Card className="automation-warning"><strong>Falta habilitar esta cuenta</strong><p>Para ejecutar reservas en segundo plano, cerrá sesión y volvé a entrar a Neptunia marcando “Habilitar reservas automáticas con esta cuenta”.</p></Card> : null}

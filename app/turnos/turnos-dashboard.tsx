@@ -253,7 +253,7 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     <main className="dashboard">
       <header className="topbar">
         <Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link>
-        <nav><Button href="/reservas" type="text" icon={<CalendarOutlined />}>Mis reservas</Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}>Automatizar</Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
+        <nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}><span className="desktop-only">Salir</span></Button></form></nav>
       </header>
       <section className="hero">
         <div><p className="eyebrow">NEPTUNIA · DISPONIBILIDAD EN VIVO</p><p className="hero-copy">Elegí el día, encontrá tu horario y seguí jugando.</p></div>

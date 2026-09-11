@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftOutlined, CalendarOutlined, DeleteOutlined, EyeOutlined, LogoutOutlined, ReloadOutlined, TeamOutlined } from "@ant-design/icons";
+import { CalendarOutlined, DeleteOutlined, EyeOutlined, LogoutOutlined, ReloadOutlined, RobotOutlined, TeamOutlined } from "@ant-design/icons";
 import { Alert, App, Button, Empty, Modal, Skeleton, Tag } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -66,7 +66,7 @@ export default function ReservasDashboard({ currentMemberId, members }: { curren
     <main className="dashboard">
       <header className="topbar">
         <Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link>
-        <nav><Button href="/turnos" type="text" icon={<ArrowLeftOutlined />}>Disponibilidad</Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}>Salir</Button></form></nav>
+        <nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}><span className="desktop-only">Salir</span></Button></form></nav>
       </header>
       <section className="reservations-page">
         <div className="reservations-heading"><div><p className="eyebrow"><CalendarOutlined /> NEPTUNIA</p><h1>Mis reservas</h1><p className="muted">Tus próximos turnos y las personas que juegan con vos.</p></div><Button onClick={() => void load()} disabled={loading} icon={<ReloadOutlined spin={loading} />}>Actualizar</Button></div>
