@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const automations = await runAutomations();
+    // Primero se decide en Redis si hay alertas. Sin alertas activas no se toca Brio.
     const alerts = await listAlerts();
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba" }).format(new Date());
     const active = alerts.filter((alert) => alert.fecha >= today);
@@ -32,6 +32,9 @@ export async function GET(request: Request) {
       sent += 1;
     }
 
+    // Luego se revisan las reglas. El runner también consulta Redis primero y
+    // solo llega a Brio cuando existe una regla habilitada para el día actual.
+    const automations = await runAutomations();
     return Response.json({ status: true, checked: active.length, sent, expired: expired.length, automations });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Error inesperado";

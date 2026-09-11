@@ -1,4 +1,4 @@
-import { authenticateBrio, confirmarReserva, consultarReserva, getAgenda, iniciarPreReserva } from "@/lib/brio";
+import { authenticateBrio, confirmarReserva, consultarReserva, getAgenda, getReservas, iniciarPreReserva } from "@/lib/brio";
 import { getAutomationCredentials, listAutomationRules } from "@/lib/automations";
 import type { BrioAuth } from "@/lib/brio-session";
 
@@ -31,24 +31,40 @@ function nextPlayDate(days: number[], hora: string, now: ReturnType<typeof local
 export async function runAutomations() {
   const now = localNow();
   const results: Array<{ id: string; status: "reserved" | "skipped" | "error"; detail?: string }> = [];
-  for (const rule of await listAutomationRules()) {
-    if (!rule.activo || !rule.diasEjecucion.includes(now.weekday)) { results.push({ id: rule.id, status: "skipped" }); continue; }
+  const candidates = (await listAutomationRules()).flatMap((rule) => {
+    if (!rule.activo || !rule.diasEjecucion.includes(now.weekday)) return [];
+    const fecha = nextPlayDate(rule.diasJuego, rule.hora, now);
+    return fecha ? [{ rule, fecha }] : [];
+  });
+  const groups = new Map<string, typeof candidates>();
+  candidates.forEach((candidate) => {
+    const key = `${candidate.rule.ownerId}:${candidate.rule.memberId}`;
+    groups.set(key, [...(groups.get(key) || []), candidate]);
+  });
+
+  // Una única sesión y una única consulta de reservas por socio. Si ya tiene
+  // dos turnos activos, no hacemos ninguna consulta adicional de canchas.
+  for (const group of groups.values()) {
     try {
-      const credentials = await getAutomationCredentials(rule.ownerId);
+      const { rule: firstRule } = group[0];
+      const credentials = await getAutomationCredentials(firstRule.ownerId);
       if (!credentials) throw new Error("El usuario no habilitó credenciales para automatizar");
       const login = await authenticateBrio(credentials.username, credentials.password);
-      if (!login.members.some((member) => member.socioId === rule.memberId)) throw new Error("El perfil de Neptunia seleccionado ya no está disponible");
-      const auth: BrioAuth = { ...login, socioId: rule.memberId };
-      const fecha = nextPlayDate(rule.diasJuego, rule.hora, now);
-      if (!fecha) throw new Error("No se encontró un próximo día de juego");
-      const turno = (await getAgenda(fecha, auth)).find((item) => item.disponible && item.hora === rule.hora && item.servicio_id === rule.servicioId);
-      if (!turno) { results.push({ id: rule.id, status: "skipped", detail: "El próximo turno todavía no está disponible" }); continue; }
-      await consultarReserva(auth, turno.id);
-      await iniciarPreReserva(auth, turno.id);
-      await confirmarReserva(auth, turno.id, rule.colegaId);
-      results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora}` });
+      if (!login.members.some((member) => member.socioId === firstRule.memberId)) throw new Error("El perfil de Neptunia seleccionado ya no está disponible");
+      const auth: BrioAuth = { ...login, socioId: firstRule.memberId };
+      let cupo = Math.max(0, 2 - (await getReservas(auth)).length);
+      for (const { rule, fecha } of group.sort((a, b) => `${a.fecha}T${a.rule.hora}`.localeCompare(`${b.fecha}T${b.rule.hora}`))) {
+        if (!cupo) { results.push({ id: rule.id, status: "skipped", detail: "Ya tiene dos turnos activos" }); continue; }
+        const turno = (await getAgenda(fecha, auth)).find((item) => item.disponible && item.hora === rule.hora && item.servicio_id === rule.servicioId);
+        if (!turno) { results.push({ id: rule.id, status: "skipped", detail: "El próximo turno todavía no está disponible" }); continue; }
+        await consultarReserva(auth, turno.id);
+        await iniciarPreReserva(auth, turno.id);
+        await confirmarReserva(auth, turno.id, rule.colegaId);
+        cupo -= 1;
+        results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora}` });
+      }
     } catch (error) {
-      results.push({ id: rule.id, status: "error", detail: error instanceof Error ? error.message : "Error inesperado" });
+      group.forEach(({ rule }) => results.push({ id: rule.id, status: "error", detail: error instanceof Error ? error.message : "Error inesperado" }));
     }
   }
   return results;
