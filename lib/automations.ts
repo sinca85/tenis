@@ -16,6 +16,7 @@ export type AutomationRule = {
   diasEjecucion: number[];
   diaCorte?: number;
   horaCorte?: string;
+  fechasOmitidas?: string[];
   activo: boolean;
   createdAt: string;
 };

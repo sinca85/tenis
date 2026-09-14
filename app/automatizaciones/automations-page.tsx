@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarOutlined, DeleteOutlined, EditOutlined, LogoutOutlined, PlusOutlined, RobotOutlined, SearchOutlined } from "@ant-design/icons";
+import { CalendarOutlined, DeleteOutlined, EditOutlined, LogoutOutlined, MinusCircleOutlined, PlusOutlined, RobotOutlined, SearchOutlined } from "@ant-design/icons";
 import { App, AutoComplete, Button, Card, Checkbox, Empty, Form, Modal, Select, Skeleton, Tag } from "antd";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +12,11 @@ const horasCorte = Array.from({ length: 24 }, (_, hour) => `${String(hour).padSt
 const canchas = [{ value: 14, label: "Cancha 1" }, { value: 15, label: "Cancha 2" }, { value: 16, label: "Cancha 3" }, { value: 17, label: "Cancha 4" }];
 const dias = [{ value: 1, label: "Lunes" }, { value: 2, label: "Martes" }, { value: 3, label: "Miércoles" }, { value: 4, label: "Jueves" }, { value: 5, label: "Viernes" }, { value: 6, label: "Sábado" }, { value: 0, label: "Domingo" }];
 const dia = (value: number) => dias.find((item) => item.value === value)?.label || "";
+const fechaArgentina = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
 
 export default function AutomationsPage({ currentMemberId, members }: { currentMemberId: string; members: MemberOption[] }) {
   const { message } = App.useApp();
@@ -80,13 +85,23 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
     if (!response.ok) { message.error(json.error || "No se pudo eliminar"); return; }
     setRules((current) => current.filter((rule) => rule.id !== id)); message.success("Automatización eliminada");
   };
+  const skipToday = async (rule: AutomationRule) => {
+    const skipped = rule.fechasOmitidas?.includes(fechaArgentina());
+    try {
+      const response = await fetch("/api/automatizaciones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: rule.id, action: skipped ? "restore-today" : "skip-today" }) });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "No se pudo actualizar la automatización");
+      setRules((current) => current.map((item) => item.id === rule.id ? json.data : item));
+      message.success(skipped ? "La reserva automática volvió a estar activa para hoy" : "No se reservará este turno hoy");
+    } catch (error) { message.error(error instanceof Error ? error.message : "No se pudo actualizar"); }
+  };
 
   return <main className="dashboard">
     <header className="topbar"><Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link><nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}><span className="desktop-only">Salir</span></Button></form></nav></header>
     <section className="reservations-page automations-page">
       <div className="reservations-heading"><div><p className="eyebrow"><RobotOutlined /> RESERVAS AUTOMÁTICAS</p><h1>Jugá sin acordarte<br />de reservar.</h1><p className="muted">Creamos el próximo turno cuando Brio permita hacerlo, siempre respetando el límite de dos reservas.</p></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={startCreate}>Agregar reserva automática</Button></div>
       {!credentialsEnabled ? <Card className="automation-warning"><strong>Falta habilitar esta cuenta</strong><p>Para ejecutar reservas en segundo plano, cerrá sesión y volvé a entrar a Neptunia marcando “Habilitar reservas automáticas con esta cuenta”.</p></Card> : null}
-      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => <Card key={rule.id} className="automation-card" actions={[<Button key="edit" type="text" icon={<EditOutlined />} onClick={() => startEdit(rule)}>Editar</Button>, <Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color="orange">Activa</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p>{rule.diaCorte !== undefined && rule.horaCorte ? <p><strong>Pausar desde:</strong> {dia(rule.diaCorte)} {rule.horaCorte}</p> : null}</Card>)}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
+      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => { const skippedToday = rule.fechasOmitidas?.includes(fechaArgentina()); return <Card key={rule.id} className="automation-card" actions={[<Button key="skip" type="text" icon={<MinusCircleOutlined />} onClick={() => void skipToday(rule)}>{skippedToday ? "Reactivar hoy" : "No reservar hoy"}</Button>, <Button key="edit" type="text" icon={<EditOutlined />} onClick={() => startEdit(rule)}>Editar</Button>, <Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color={skippedToday ? "default" : "orange"}>{skippedToday ? "Omitida hoy" : "Activa"}</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p>{rule.diaCorte !== undefined && rule.horaCorte ? <p><strong>Pausar desde:</strong> {dia(rule.diaCorte)} {rule.horaCorte}</p> : null}</Card>; })}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
     </section>
     <Modal title={editing ? "Editar reserva automática" : "Agregar reserva automática"} open={open} onCancel={() => { setOpen(false); setEditing(null); }} footer={null} destroyOnHidden>
       <p className="alert-note">El sistema busca el próximo día de juego, y reserva solo cuando el cron esté habilitado para ese día.</p>

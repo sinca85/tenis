@@ -19,6 +19,12 @@ function dateOffset(offset: number) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function localDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function weekdays(value: unknown) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
@@ -88,6 +94,27 @@ export async function PUT(request: Request) {
     return Response.json({ status: true, data: rule });
   } catch (error) {
     return Response.json({ status: false, error: error instanceof Error ? error.message : "No se pudo editar la regla" }, { status: 400 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  const brio = await authorized();
+  if (!brio) return Response.json({ status: false, error: "Iniciá sesión en Neptunia" }, { status: 401 });
+  try {
+    const body = await request.json() as Partial<AutomationRule> & { action?: string };
+    const ownerId = automationOwnerId(brio.username);
+    const existing = (await listAutomationRules(ownerId)).find((rule) => rule.id === String(body.id || ""));
+    if (!existing) return Response.json({ status: false, error: "Automatización no encontrada" }, { status: 404 });
+    const today = localDate();
+    const fechasOmitidas = new Set(existing.fechasOmitidas || []);
+    if (body.action === "skip-today") fechasOmitidas.add(today);
+    else if (body.action === "restore-today") fechasOmitidas.delete(today);
+    else return Response.json({ status: false, error: "Acción no válida" }, { status: 400 });
+    const rule: AutomationRule = { ...existing, fechasOmitidas: [...fechasOmitidas].filter((date) => date >= today) };
+    await saveAutomationRule(rule);
+    return Response.json({ status: true, data: rule });
+  } catch (error) {
+    return Response.json({ status: false, error: error instanceof Error ? error.message : "No se pudo actualizar la automatización" }, { status: 503 });
   }
 }
 
