@@ -107,10 +107,18 @@ export async function PATCH(request: Request) {
     if (!existing) return Response.json({ status: false, error: "Automatización no encontrada" }, { status: 404 });
     const today = localDate();
     const fechasOmitidas = new Set(existing.fechasOmitidas || []);
-    if (body.action === "skip-today") fechasOmitidas.add(today);
+    let pausadaHasta = existing.pausadaHasta;
+    if (body.action === "pause") {
+      const value = String(body.pausadaHasta || "");
+      const pauseTime = Date.parse(value);
+      if (!Number.isFinite(pauseTime) || pauseTime <= Date.now()) return Response.json({ status: false, error: "Elegí una fecha y hora futura" }, { status: 400 });
+      pausadaHasta = new Date(pauseTime).toISOString();
+    } else if (body.action === "resume") {
+      pausadaHasta = undefined;
+    } else if (body.action === "skip-today") fechasOmitidas.add(today);
     else if (body.action === "restore-today") fechasOmitidas.delete(today);
     else return Response.json({ status: false, error: "Acción no válida" }, { status: 400 });
-    const rule: AutomationRule = { ...existing, fechasOmitidas: [...fechasOmitidas].filter((date) => date >= today) };
+    const rule: AutomationRule = { ...existing, pausadaHasta, fechasOmitidas: [...fechasOmitidas].filter((date) => date >= today) };
     await saveAutomationRule(rule);
     return Response.json({ status: true, data: rule });
   } catch (error) {

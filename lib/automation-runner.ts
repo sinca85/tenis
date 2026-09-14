@@ -33,6 +33,7 @@ export async function runAutomations() {
   const now = localNow();
   const results: Array<{ id: string; status: "reserved" | "skipped" | "error"; detail?: string }> = [];
   const candidates = (await listAutomationRules()).flatMap((rule) => {
+    if (rule.pausadaHasta && Date.parse(rule.pausadaHasta) > Date.now()) return [];
     if (!rule.activo || !rule.diasEjecucion.includes(now.weekday)) return [];
     if (rule.diaCorte !== undefined && rule.horaCorte && (now.weekday > rule.diaCorte || (now.weekday === rule.diaCorte && now.time >= rule.horaCorte))) return [];
     const fecha = nextPlayDate(rule.diasJuego, rule.hora, now, rule.fechasOmitidas);

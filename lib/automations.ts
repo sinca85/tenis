@@ -17,6 +17,7 @@ export type AutomationRule = {
   diaCorte?: number;
   horaCorte?: string;
   fechasOmitidas?: string[];
+  pausadaHasta?: string;
   activo: boolean;
   createdAt: string;
 };

@@ -1,7 +1,8 @@
 "use client";
 
 import { CalendarOutlined, DeleteOutlined, EditOutlined, LogoutOutlined, MinusCircleOutlined, PlusOutlined, RobotOutlined, SearchOutlined } from "@ant-design/icons";
-import { App, AutoComplete, Button, Card, Checkbox, Empty, Form, Modal, Select, Skeleton, Tag } from "antd";
+import { App, AutoComplete, Button, Card, Checkbox, DatePicker, Empty, Form, Modal, Select, Skeleton, Tag } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { AutomationRule } from "@/lib/automations";
@@ -24,6 +25,9 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseRule, setPauseRule] = useState<AutomationRule | null>(null);
+  const [pauseForm] = Form.useForm<{ pausadaHasta: Dayjs }>();
   const [editing, setEditing] = useState<AutomationRule | null>(null);
   const [saving, setSaving] = useState(false);
   const [credentialsEnabled, setCredentialsEnabled] = useState(false);
@@ -85,24 +89,42 @@ export default function AutomationsPage({ currentMemberId, members }: { currentM
     if (!response.ok) { message.error(json.error || "No se pudo eliminar"); return; }
     setRules((current) => current.filter((rule) => rule.id !== id)); message.success("Automatización eliminada");
   };
-  const skipToday = async (rule: AutomationRule) => {
-    const skipped = rule.fechasOmitidas?.includes(fechaArgentina());
+  const pauseReservation = async (values: { pausadaHasta: Dayjs }) => {
+    if (!pauseRule) return;
     try {
-      const response = await fetch("/api/automatizaciones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: rule.id, action: skipped ? "restore-today" : "skip-today" }) });
+      const response = await fetch("/api/automatizaciones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: pauseRule.id, action: "pause", pausadaHasta: values.pausadaHasta.toISOString() }) });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "No se pudo actualizar la automatización");
+      setRules((current) => current.map((item) => item.id === pauseRule.id ? json.data : item));
+      setPauseOpen(false); setPauseRule(null); pauseForm.resetFields();
+      message.success("La reserva automática quedó pausada");
+    } catch (error) { message.error(error instanceof Error ? error.message : "No se pudo actualizar"); }
+  };
+  const resumeReservation = async (rule: AutomationRule) => {
+    try {
+      const response = await fetch("/api/automatizaciones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: rule.id, action: "resume" }) });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "No se pudo actualizar la automatización");
       setRules((current) => current.map((item) => item.id === rule.id ? json.data : item));
-      message.success(skipped ? "La reserva automática volvió a estar activa para hoy" : "No se reservará este turno hoy");
+      message.success("La reserva automática volvió a estar activa");
     } catch (error) { message.error(error instanceof Error ? error.message : "No se pudo actualizar"); }
   };
+  const startPause = (rule: AutomationRule) => { setPauseRule(rule); pauseForm.setFieldsValue({ pausadaHasta: dayjs().add(1, "day").hour(20).minute(0).second(0) }); setPauseOpen(true); };
 
   return <main className="dashboard">
     <header className="topbar"><Link href="/turnos" className="brand"><span className="tennis-ball mini" /> TENIS</Link><nav><Button href="/turnos" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Disponibilidad</span><span className="mobile-only">Ver</span></Button><Button href="/reservas" type="text" icon={<CalendarOutlined />}><span className="desktop-only">Mis reservas</span><span className="mobile-only">Reservas</span></Button><Button href="/automatizaciones" type="text" icon={<RobotOutlined />}><span className="desktop-only">Automatizar</span><span className="mobile-only">Auto</span></Button><MemberMenu currentId={currentMemberId} members={members} /><form action="/api/logout" method="post"><Button htmlType="submit" type="text" icon={<LogoutOutlined />}><span className="desktop-only">Salir</span></Button></form></nav></header>
     <section className="reservations-page automations-page">
       <div className="reservations-heading"><div><p className="eyebrow"><RobotOutlined /> RESERVAS AUTOMÁTICAS</p><h1>Jugá sin acordarte<br />de reservar.</h1><p className="muted">Creamos el próximo turno cuando Brio permita hacerlo, siempre respetando el límite de dos reservas.</p></div><Button type="primary" size="large" icon={<PlusOutlined />} onClick={startCreate}>Agregar reserva automática</Button></div>
       {!credentialsEnabled ? <Card className="automation-warning"><strong>Falta habilitar esta cuenta</strong><p>Para ejecutar reservas en segundo plano, cerrá sesión y volvé a entrar a Neptunia marcando “Habilitar reservas automáticas con esta cuenta”.</p></Card> : null}
-      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => { const skippedToday = rule.fechasOmitidas?.includes(fechaArgentina()); return <Card key={rule.id} className="automation-card" actions={[<Button key="skip" type="text" icon={<MinusCircleOutlined />} onClick={() => void skipToday(rule)}>{skippedToday ? "Reactivar hoy" : "No reservar hoy"}</Button>, <Button key="edit" type="text" icon={<EditOutlined />} onClick={() => startEdit(rule)}>Editar</Button>, <Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color={skippedToday ? "default" : "orange"}>{skippedToday ? "Omitida hoy" : "Activa"}</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p>{rule.diaCorte !== undefined && rule.horaCorte ? <p><strong>Pausar desde:</strong> {dia(rule.diaCorte)} {rule.horaCorte}</p> : null}</Card>; })}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
+      {loading ? <Skeleton active paragraph={{ rows: 5 }} /> : rules.length ? <div className="automation-grid">{rules.map((rule) => { const paused = Boolean(rule.pausadaHasta && Date.parse(rule.pausadaHasta) > Date.now()); return <Card key={rule.id} className="automation-card" actions={[<Button key="pause" type="text" icon={<MinusCircleOutlined />} onClick={() => paused ? void resumeReservation(rule) : startPause(rule)}>{paused ? "Reactivar reserva" : "Pausar reserva"}</Button>, <Button key="edit" type="text" icon={<EditOutlined />} onClick={() => startEdit(rule)}>Editar</Button>, <Button key="delete" danger type="text" icon={<DeleteOutlined />} onClick={() => void remove(rule.id)}>Eliminar</Button>]}><Tag color={paused ? "default" : "orange"}>{paused ? "Pausada" : "Activa"}</Tag><h2>{rule.hora.slice(0, 5)} · Cancha {rule.servicioId - 13}{rule.servicioId2 ? ` → Cancha ${rule.servicioId2 - 13}` : ""}</h2><p><strong>Con:</strong> {rule.colegaNombre}</p><p><strong>Juego:</strong> {rule.diasJuego.map(dia).join(", ")}</p><p><strong>Buscar:</strong> {rule.diasEjecucion.map(dia).join(", ")}</p>{paused ? <p><strong>Hasta:</strong> {new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Argentina/Cordoba" }).format(new Date(rule.pausadaHasta!))}</p> : null}{rule.diaCorte !== undefined && rule.horaCorte ? <p><strong>Pausar desde:</strong> {dia(rule.diaCorte)} {rule.horaCorte}</p> : null}</Card>; })}</div> : <Empty description="Todavía no configuraste reservas automáticas" />}
     </section>
+    <Modal title="Pausar reserva automática" open={pauseOpen} onCancel={() => { setPauseOpen(false); setPauseRule(null); }} footer={null} destroyOnHidden>
+      <p className="alert-note">No se intentará reservar este turno hasta la fecha y hora que indiques.</p>
+      <Form form={pauseForm} layout="vertical" onFinish={pauseReservation}>
+        <Form.Item label="No reservar hasta" name="pausadaHasta" rules={[{ required: true, message: "Elegí hasta cuándo pausarla" }]}><DatePicker showTime format="DD/MM/YYYY HH:mm" minuteStep={5} disabledDate={(date) => date.endOf("day") < dayjs().startOf("day")} style={{ width: "100%" }} /></Form.Item>
+        <Button type="primary" htmlType="submit" block>Pausar reserva</Button>
+      </Form>
+    </Modal>
     <Modal title={editing ? "Editar reserva automática" : "Agregar reserva automática"} open={open} onCancel={() => { setOpen(false); setEditing(null); }} footer={null} destroyOnHidden>
       <p className="alert-note">El sistema busca el próximo día de juego, y reserva solo cuando el cron esté habilitado para ese día.</p>
       <Form form={form} layout="vertical" onFinish={save} initialValues={{ diasEjecucion: [1, 2, 3, 4], diasJuego: [2, 4] }}>
