@@ -19,11 +19,15 @@ function addDays(date: string, days: number) {
 
 function weekday(date: string) { return new Date(`${date}T12:00:00-03:00`).getDay(); }
 
-function nextPlayDate(days: number[], hora: string, now: ReturnType<typeof localNow>, fechasOmitidas: string[] = []) {
+function nextPlayDate(days: number[], hora: string, now: ReturnType<typeof localNow>, fechasOmitidas: string[] = [], pausadaHasta?: string) {
+  const pauseTime = pausadaHasta ? Date.parse(pausadaHasta) : Number.NaN;
   for (let offset = 0; offset < 15; offset += 1) {
     const date = addDays(now.date, offset);
     if (!days.includes(weekday(date))) continue;
     if (fechasOmitidas.includes(date)) continue;
+    // La pausa saltea ocurrencias, no la regla completa: una pausa hasta el
+    // miércoles permite seguir buscando desde ahora el turno del jueves.
+    if (Number.isFinite(pauseTime) && Date.parse(`${date}T${hora}-03:00`) <= pauseTime) continue;
     if (date > now.date || hora.slice(0, 5) > now.time) return date;
   }
   return null;
@@ -33,10 +37,9 @@ export async function runAutomations() {
   const now = localNow();
   const results: Array<{ id: string; status: "reserved" | "skipped" | "error"; detail?: string }> = [];
   const candidates = (await listAutomationRules()).flatMap((rule) => {
-    if (rule.pausadaHasta && Date.parse(rule.pausadaHasta) > Date.now()) return [];
     if (!rule.activo || !rule.diasEjecucion.includes(now.weekday)) return [];
     if (rule.diaCorte !== undefined && rule.horaCorte && (now.weekday > rule.diaCorte || (now.weekday === rule.diaCorte && now.time >= rule.horaCorte))) return [];
-    const fecha = nextPlayDate(rule.diasJuego, rule.hora, now, rule.fechasOmitidas);
+    const fecha = nextPlayDate(rule.diasJuego, rule.hora, now, rule.fechasOmitidas, rule.pausadaHasta);
     return fecha ? [{ rule, fecha }] : [];
   });
   const groups = new Map<string, typeof candidates>();
