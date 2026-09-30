@@ -1,4 +1,4 @@
-import { authenticateBrio, confirmarReserva, consultarReserva, getAgenda, getReservas, iniciarPreReserva } from "@/lib/brio";
+import { authenticateBrio, confirmarReserva, consultarReserva, getAgenda, iniciarPreReserva } from "@/lib/brio";
 import { getAutomationCredentials, listAutomationRules } from "@/lib/automations";
 import type { BrioAuth } from "@/lib/brio-session";
 
@@ -46,8 +46,8 @@ export async function runAutomations() {
     groups.set(key, [...(groups.get(key) || []), candidate]);
   });
 
-  // Una única sesión y una única consulta de reservas por socio. Si ya tiene
-  // dos turnos activos, no hacemos ninguna consulta adicional de canchas.
+  // Compartimos una sola sesión por socio. Brio decide si el socio puede sumar
+  // otra reserva; la aplicación no impone un límite propio.
   for (const group of groups.values()) {
     try {
       const { rule: firstRule } = group[0];
@@ -56,18 +56,19 @@ export async function runAutomations() {
       const login = await authenticateBrio(credentials.username, credentials.password);
       if (!login.members.some((member) => member.socioId === firstRule.memberId)) throw new Error("El perfil de Neptunia seleccionado ya no está disponible");
       const auth: BrioAuth = { ...login, socioId: firstRule.memberId };
-      let cupo = Math.max(0, 2 - (await getReservas(auth)).length);
       for (const { rule, fecha } of group.sort((a, b) => `${a.fecha}T${a.rule.hora}`.localeCompare(`${b.fecha}T${b.rule.hora}`))) {
-        if (!cupo) { results.push({ id: rule.id, status: "skipped", detail: "Ya tiene dos turnos activos" }); continue; }
-        const agenda = await getAgenda(fecha, auth);
-        const prioridades = [rule.servicioId, rule.servicioId2].filter((cancha): cancha is number => typeof cancha === "number");
-        const turno = prioridades.map((cancha) => agenda.find((item) => item.disponible && item.hora === rule.hora && item.servicio_id === cancha)).find(Boolean);
-        if (!turno) { results.push({ id: rule.id, status: "skipped", detail: "El próximo turno todavía no está disponible" }); continue; }
-        await consultarReserva(auth, turno.id);
-        await iniciarPreReserva(auth, turno.id);
-        await confirmarReserva(auth, turno.id, rule.colegaId);
-        cupo -= 1;
-        results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora} · ${turno.servicioNombre}` });
+        try {
+          const agenda = await getAgenda(fecha, auth);
+          const prioridades = [rule.servicioId, rule.servicioId2].filter((cancha): cancha is number => typeof cancha === "number");
+          const turno = prioridades.map((cancha) => agenda.find((item) => item.disponible && item.hora === rule.hora && item.servicio_id === cancha)).find(Boolean);
+          if (!turno) { results.push({ id: rule.id, status: "skipped", detail: "El próximo turno todavía no está disponible" }); continue; }
+          await consultarReserva(auth, turno.id);
+          await iniciarPreReserva(auth, turno.id);
+          await confirmarReserva(auth, turno.id, rule.colegaId);
+          results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora} · ${turno.servicioNombre}` });
+        } catch (error) {
+          results.push({ id: rule.id, status: "error", detail: error instanceof Error ? error.message : "Brio rechazó la reserva" });
+        }
       }
     } catch (error) {
       group.forEach(({ rule }) => results.push({ id: rule.id, status: "error", detail: error instanceof Error ? error.message : "Error inesperado" }));
