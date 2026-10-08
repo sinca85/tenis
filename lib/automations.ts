@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 
 export const AUTOMATIONS_RULES_KEY = "tenis:automations:rules";
 export const AUTOMATIONS_CREDENTIALS_KEY = "tenis:automations:credentials";
+const LOCAL_RESERVATIONS_PREFIX = "tenis:reservations";
 
 export type AutomationRule = {
   id: string;
@@ -86,4 +87,31 @@ export async function saveAutomationRule(rule: AutomationRule) {
 
 export async function deleteAutomationRule(id: string) {
   await command<number>(["HDEL", AUTOMATIONS_RULES_KEY, id]);
+}
+
+function reservationsKey(ownerId: string, memberId: string) {
+  return `${LOCAL_RESERVATIONS_PREFIX}:${ownerId}:${memberId}`;
+}
+
+export async function countLocalReservations(ownerId: string, memberId: string) {
+  const key = reservationsKey(ownerId, memberId);
+  await command<number>(["ZREMRANGEBYSCORE", key, "-inf", Date.now()]);
+  return await command<number>(["ZCARD", key]) || 0;
+}
+
+export async function saveLocalReservation(ownerId: string, memberId: string, turnoId: string, fecha: string, horafin: string) {
+  const endsAt = Date.parse(`${fecha}T${horafin}-03:00`);
+  if (!/^[0-9a-f-]{36}$/i.test(turnoId) || !Number.isFinite(endsAt)) return;
+  await command<number>(["ZADD", reservationsKey(ownerId, memberId), endsAt, turnoId]);
+}
+
+export async function removeLocalReservation(ownerId: string, memberId: string, turnoId: string) {
+  if (!turnoId) return;
+  await command<number>(["ZREM", reservationsKey(ownerId, memberId), turnoId]);
+}
+
+export async function rememberLocalReservations(ownerId: string, memberId: string, reservations: Array<{ turnoId: string; fecha?: string; horafin?: string }>) {
+  await Promise.all(reservations.map((reservation) => reservation.fecha && reservation.horafin
+    ? saveLocalReservation(ownerId, memberId, reservation.turnoId, reservation.fecha, reservation.horafin)
+    : Promise.resolve()));
 }

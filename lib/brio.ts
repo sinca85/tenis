@@ -213,6 +213,15 @@ function plainText(value: unknown) {
   return String(value || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function reservationSchedule(name: string) {
+  const match = name.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*-\s*(\d{1,2}):(\d{2})/);
+  if (!match) return {};
+  const [, day, month, year, hour, minute] = match;
+  const fecha = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const hora = `${hour.padStart(2, "0")}:${minute}:00`;
+  return { fecha, hora, horafin: endTime(hora) };
+}
+
 export async function getReservas(auth: BrioAuth): Promise<ReservaUsuario[]> {
   const html = await brioText(auth, "/turno/reservas/");
   const ids = [...new Set([...html.matchAll(/verReserva\(['"]([0-9a-f-]{36})['"]\)/ig)].map((match) => match[1]))];
@@ -223,15 +232,17 @@ export async function getReservas(auth: BrioAuth): Promise<ReservaUsuario[]> {
       socios?: Array<{ apellidonombre?: string }>;
     }>(auth, `/turno/socio/${id}/`);
     if (!response.status || !response.data) throw new Error("Una reserva ya no está disponible");
+    const nombre = response.data.nombre || "Turno de tenis";
     const reservation: ReservaUsuario = {
       id,
       turnoId: response.data.id || "",
-      nombre: response.data.nombre || "Turno de tenis",
+      nombre,
       estado: response.data.turnoSocioEstado || "Reservado",
       mensaje: plainText(response.data.mensaje),
       puedeCancelar: Boolean(response.data.puedoCancelar),
       locked: Boolean(response.data.locked),
       socios: (response.socios || []).map((socio) => socio.apellidonombre || "Socio").filter(Boolean),
+      ...reservationSchedule(nombre),
     };
     // El endpoint usado por verReserva bloquea el turno durante 120 segundos.
     // Como aquí solo leemos el detalle, replicamos el cierre del modal oficial y lo liberamos enseguida.

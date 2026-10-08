@@ -1,5 +1,5 @@
 import { authenticateBrio, confirmarReserva, consultarReserva, getAgenda, iniciarPreReserva } from "@/lib/brio";
-import { getAutomationCredentials, listAutomationRules } from "@/lib/automations";
+import { countLocalReservations, getAutomationCredentials, listAutomationRules, saveLocalReservation } from "@/lib/automations";
 import type { BrioAuth } from "@/lib/brio-session";
 
 const TIME_ZONE = "America/Argentina/Cordoba";
@@ -46,17 +46,23 @@ export async function runAutomations() {
     groups.set(key, [...(groups.get(key) || []), candidate]);
   });
 
-  // Compartimos una sola sesión por socio. Brio decide si el socio puede sumar
-  // otra reserva; la aplicación no impone un límite propio.
+  // El registro local se consulta antes de iniciar sesión en Brio. Con dos
+  // reservas activas, este socio no genera ninguna consulta externa.
   for (const group of groups.values()) {
     try {
       const { rule: firstRule } = group[0];
+      let reservasActivas = await countLocalReservations(firstRule.ownerId, firstRule.memberId);
+      if (reservasActivas >= 2) {
+        group.forEach(({ rule }) => results.push({ id: rule.id, status: "skipped", detail: "Ya hay dos reservas activas registradas" }));
+        continue;
+      }
       const credentials = await getAutomationCredentials(firstRule.ownerId);
       if (!credentials) throw new Error("El usuario no habilitó credenciales para automatizar");
       const login = await authenticateBrio(credentials.username, credentials.password);
       if (!login.members.some((member) => member.socioId === firstRule.memberId)) throw new Error("El perfil de Neptunia seleccionado ya no está disponible");
       const auth: BrioAuth = { ...login, socioId: firstRule.memberId };
       for (const { rule, fecha } of group.sort((a, b) => `${a.fecha}T${a.rule.hora}`.localeCompare(`${b.fecha}T${b.rule.hora}`))) {
+        if (reservasActivas >= 2) { results.push({ id: rule.id, status: "skipped", detail: "Ya hay dos reservas activas registradas" }); continue; }
         try {
           const agenda = await getAgenda(fecha, auth);
           const prioridades = [rule.servicioId, rule.servicioId2].filter((cancha): cancha is number => typeof cancha === "number");
@@ -65,6 +71,8 @@ export async function runAutomations() {
           await consultarReserva(auth, turno.id);
           await iniciarPreReserva(auth, turno.id);
           await confirmarReserva(auth, turno.id, rule.colegaId);
+          await saveLocalReservation(rule.ownerId, rule.memberId, turno.id, fecha, turno.horafin);
+          reservasActivas += 1;
           results.push({ id: rule.id, status: "reserved", detail: `${fecha} ${rule.hora} · ${turno.servicioNombre}` });
         } catch (error) {
           results.push({ id: rule.id, status: "error", detail: error instanceof Error ? error.message : "Brio rechazó la reserva" });

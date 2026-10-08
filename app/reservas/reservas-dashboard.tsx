@@ -51,7 +51,7 @@ export default function ReservasDashboard({ currentMemberId, members }: { curren
     if (!selected || !warning) return;
     setCanceling(true);
     try {
-      const response = await fetch("/api/mis-reservas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancelar", reservaId: selected.id }) });
+      const response = await fetch("/api/mis-reservas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancelar", reservaId: selected.id, turnoId: selected.turnoId }) });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "No se pudo cancelar el turno");
       setSelected(null); setWarning(null);

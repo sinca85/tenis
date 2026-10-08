@@ -76,6 +76,9 @@ export type ReservaUsuario = {
   puedeCancelar: boolean;
   locked: boolean;
   socios: string[];
+  fecha?: string;
+  hora?: string;
+  horafin?: string;
 };
 
 export type ConsultaCancelacion = {

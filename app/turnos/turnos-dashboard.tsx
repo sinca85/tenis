@@ -94,11 +94,11 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     form.resetFields();
     setSelected(turno);
   }, [form]);
-  const reserveRequest = useCallback(async (action: string, turnoId: string, selectedColegaId?: string) => {
+  const reserveRequest = useCallback(async (action: string, turnoId: string, selectedColegaId?: string, turno?: TurnoAgenda) => {
     const response = await fetch("/api/reservas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, turnoId, colegaId: selectedColegaId }),
+      body: JSON.stringify({ action, turnoId, colegaId: selectedColegaId, fecha: turno?.fecha, horafin: turno?.horafin }),
     });
     const json = await response.json();
     if (!response.ok || !json.status) throw new Error(json.error || "No se pudo procesar la reserva");
@@ -184,7 +184,7 @@ export default function TurnosDashboard({ currentMemberId, members }: { currentM
     if (!reserveTurno || !colegaId) return;
     setReserveLoading(true);
     try {
-      const result = await reserveRequest("confirmar", reserveTurno.id, colegaId);
+      const result = await reserveRequest("confirmar", reserveTurno.id, colegaId, reserveTurno);
       setReserveTurno(null); setReserveInfo(null); setPreReserve(null); setColegaId(undefined);
       Modal.success({ title: result.titulo || "Turno reservado", content: result.mensaje });
       await load();
