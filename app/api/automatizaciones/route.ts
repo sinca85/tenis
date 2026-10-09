@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as Partial<AutomationRule>;
     const ownerId = automationOwnerId(brio.username);
-    if (!await getAutomationCredentials(ownerId)) return Response.json({ status: false, error: "Para automatizar, cerrá sesión e ingresá de nuevo marcando “Habilitar reservas automáticas”." }, { status: 409 });
+    if (!await getAutomationCredentials(ownerId)) return Response.json({ status: false, error: "Las reservas automáticas no están habilitadas para esta cuenta." }, { status: 409 });
     const rule: AutomationRule = { id: randomUUID(), ownerId, memberId: brio.socioId, ...ruleValues(body), colegaNombre: String(body.colegaNombre || "Compañero"), activo: true, createdAt: new Date().toISOString() };
     await saveAutomationRule(rule);
     return Response.json({ status: true, data: rule });
