@@ -102,7 +102,7 @@ export async function authenticateBrio(username: string, password: string): Prom
   const memberIds = [...new Set([...familySection.matchAll(/\/carnet\/([0-9a-f-]{36})\//ig)].map((match) => match[1]))];
   const members = await loadMemberProfiles(authenticatedCookie, memberIds.length ? memberIds : [socioId]);
   const selected = members.find((member) => member.socioId === socioId) || members[0];
-  return { cookie: authenticatedCookie, socioId: selected.socioId, username: username.trim(), name: selected.name, members };
+  return { cookie: authenticatedCookie, socioId: selected.socioId, username: username.trim(), name: selected.name, dni: selected.dni, members };
 }
 
 async function loadMemberProfiles(cookie: string, ids: string[]): Promise<BrioMember[]> {
@@ -112,8 +112,8 @@ async function loadMemberProfiles(cookie: string, ids: string[]): Promise<BrioMe
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
-    const data = profile.ok ? await profile.json() as { nombre?: string } : {};
-    return { socioId: id, name: data.nombre?.trim() || "Socio" };
+    const data = profile.ok ? await profile.json() as { nombre?: string; dni?: string | number } : {};
+    return { socioId: id, name: data.nombre?.trim() || "Socio", dni: data.dni };
   }));
 }
 

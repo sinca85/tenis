@@ -3,13 +3,14 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 export const BRIO_SESSION_COOKIE = "tenis_brio_session";
 export const brioSessionMaxAge = 60 * 60 * 12;
 
-export type BrioMember = { socioId: string; name: string };
+export type BrioMember = { socioId: string; name: string; dni?: string | number };
 
 export type BrioAuth = {
   cookie: string;
   socioId: string;
   username: string;
   name: string;
+  dni?: string | number;
   members: BrioMember[];
 };
 
@@ -46,6 +47,7 @@ export function verifyBrioSession(token?: string): BrioAuth | null {
           socioId: auth.socioId,
           username: auth.username,
           name: typeof auth.name === "string" ? auth.name : auth.username,
+          dni: typeof auth.dni === "string" || typeof auth.dni === "number" ? auth.dni : undefined,
           members: Array.isArray(auth.members) ? auth.members : [{ socioId: auth.socioId, name: typeof auth.name === "string" ? auth.name : auth.username }],
         }
       : null;

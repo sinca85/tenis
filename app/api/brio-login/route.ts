@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateBrio } from "@/lib/brio";
 import { BRIO_SESSION_COOKIE, brioSessionMaxAge, createBrioSession, type BrioAuth } from "@/lib/brio-session";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { rememberAccess } from "@/lib/access-registry";
 
 export async function POST(request: NextRequest) {
   if (!verifySession((await cookies()).get(SESSION_COOKIE)?.value)) {
@@ -18,6 +19,11 @@ export async function POST(request: NextRequest) {
     auth = await authenticateBrio(username, password);
   } catch {
     return NextResponse.redirect(new URL("/brio-login?error=1", request.url), 303);
+  }
+  try {
+    await rememberAccess(auth.dni, auth.name);
+  } catch (error) {
+    console.error("[brio-login] no se pudo registrar el acceso", error);
   }
   const response = NextResponse.redirect(new URL("/turnos", request.url), 303);
   response.cookies.set(BRIO_SESSION_COOKIE, createBrioSession(auth), {

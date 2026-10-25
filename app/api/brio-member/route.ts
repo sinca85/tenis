@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFamilyMembers } from "@/lib/brio";
 import { BRIO_SESSION_COOKIE, brioSessionMaxAge, createBrioSession, verifyBrioSession } from "@/lib/brio-session";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { rememberAccess } from "@/lib/access-registry";
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -17,8 +18,13 @@ export async function POST(request: NextRequest) {
     const members = await getFamilyMembers(brio);
     const selected = members.find((member) => member.socioId === body.socioId);
     if (!selected) return Response.json({ status: false, error: "Ese socio no pertenece a la cuenta" }, { status: 403 });
+    try {
+      await rememberAccess(selected.dni, selected.name);
+    } catch (error) {
+      console.error("[brio-member] no se pudo registrar el acceso", error);
+    }
     const response = NextResponse.json({ status: true });
-    response.cookies.set(BRIO_SESSION_COOKIE, createBrioSession({ ...brio, socioId: selected.socioId, name: selected.name, members }), {
+    response.cookies.set(BRIO_SESSION_COOKIE, createBrioSession({ ...brio, socioId: selected.socioId, name: selected.name, dni: selected.dni, members }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
